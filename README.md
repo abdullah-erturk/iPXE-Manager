@@ -28,9 +28,9 @@
 <summary><strong>🎬 Tanıtım Videoları / Promotional Videos</strong></summary>
 
 <br>
-> The voiceover is in Turkish. English subtitles can be enabled on YouTube.
->
-> Special thanks to **Tayfın AKKOYUN** for his support.
+The voiceover is in Turkish. English subtitles can be enabled on YouTube.
+
+Special thanks to **Tayfın AKKOYUN** for his support.
 
 <table>
 <tr>
