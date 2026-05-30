@@ -10,6 +10,8 @@
 
 ![sample](https://github.com/abdullah-erturk/iPXE-Manager/blob/main/preview.jpg)
 
+![sample](https://github.com/abdullah-erturk/iPXE-Manager/blob/main/adminpanel.jpg)
+
 ## Download Link:
 
 [![Stable?](https://img.shields.io/badge/Release-v1.svg?style=flat)](https://github.com/abdullah-erturk/iPXE-Manager/archive/refs/heads/main.zip)
