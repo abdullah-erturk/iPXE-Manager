@@ -1,0 +1,116 @@
+iPXE Manager — Custom License
+Copyright (c) 2026 Abdullah ERTÜRK
+https://github.com/abdullah-erturk
+https://erturk-dev.netlify.app
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ENGLISH
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to use,
+copy, modify, and distribute the Software, subject to the following conditions:
+
+1. NON-COMMERCIAL USE ONLY
+   The Software may not be used, in whole or in part, for commercial purposes.
+   Commercial purposes include, but are not limited to: selling the Software or
+   derivative works, incorporating it into a commercial product or service, or
+   using it in any activity intended to generate revenue.
+
+2. ATTRIBUTION REQUIRED
+   The original author credit must be preserved in all copies or substantial
+   portions of the Software, including but not limited to:
+   - Author name (Abdullah ERTÜRK) in source code comments and headers
+   - Author links (github.com/abdullah-erturk, erturk-dev.netlify.app) in the
+     user interface footer and any About/credits sections
+   Removing, hiding, or replacing the author's name or links is not permitted.
+
+3. DERIVATIVE WORKS
+   Modified versions of the Software may be distributed under the same license
+   terms, provided that the original author credit is preserved (see clause 2)
+   and the modified nature of the work is clearly indicated.
+
+4. NO WARRANTY
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+   AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY ARISING FROM THE
+   USE OF THIS SOFTWARE.
+
+5. NO OFFICIAL SUPPORT
+   This project was developed for personal workplace use. The author is under
+   no obligation to provide support, maintenance, or updates of any kind.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+TÜRKÇE (Bilgilendirme Amaçlı — Bağlayıcı Metin Yukarıdaki İngilizce Metindir)
+
+Bu yazılımı aşağıdaki koşullar dahilinde ücretsiz olarak kullanabilir,
+kopyalayabilir, değiştirebilir ve dağıtabilirsiniz:
+
+1. YALNIZCA TİCARİ OLMAYAN KULLANIMLAR
+   Yazılım, ticari amaçlarla kullanılamaz. Ticari amaç; yazılımı veya
+   türev çalışmalarını satmak, ticari bir ürün ya da hizmete dahil etmek
+   veya gelir elde etmeye yönelik herhangi bir faaliyette kullanmak
+   anlamına gelir.
+
+2. ATIF ZORUNLULUĞU
+   Yazılımın tüm kopyalarında veya önemli bölümlerinde orijinal yazar
+   bilgileri korunmalıdır:
+   - Kaynak kod yorumlarında yazar adı (Abdullah ERTÜRK)
+   - Arayüz footer'ında ve hakkında/kredi bölümlerinde yazar linkleri
+     (github.com/abdullah-erturk, erturk-dev.netlify.app)
+   Yazar adının veya linklerinin kaldırılması, gizlenmesi ya da
+   değiştirilmesi yasaktır.
+
+3. TÜREV ÇALIŞMALAR
+   Değiştirilmiş sürümler aynı lisans koşulları altında dağıtılabilir;
+   orijinal yazar bilgileri korunmalı ve değişiklikler açıkça belirtilmelidir.
+
+4. GARANTİ YOK
+   Yazılım "olduğu gibi" sunulmaktadır. Yazar, yazılımın kullanımından
+   doğabilecek herhangi bir hasar veya kayıptan sorumlu tutulamaz.
+
+5. RESMİ DESTEK YOK
+   Bu proje kişisel işyeri kullanımı için geliştirilmiştir. Yazar, herhangi
+   bir destek, bakım veya güncelleme sağlama yükümlülüğü taşımamaktadır.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+THIRD-PARTY COMPONENTS / ÜÇÜNCÜ TARAF BİLEŞENLER
+
+This project includes or depends on the following third-party components,
+each subject to their own license terms:
+
+- pxesrv.exe (TinyPXE Server) by Erwan Labalec — Freeware, closed source
+  http://erwan.labalec.fr/tinypxe/
+
+- iPXE (ipxe-legacy.pxe, bootx64.efi, ipxe.efi) — GPL v2
+  https://ipxe.org
+  https://github.com/ipxe/ipxe
+
+- Python Flask — BSD License
+  https://flask.palletsprojects.com
+
+- wimboot — GPL v2
+  https://ipxe.org/wimboot
+  https://github.com/ipxe/wimboot
+
+- wimlib / wimlib-imagex (wimlib-imagex.exe, libwim-*.dll) — GPL v3 (tool),
+  LGPL v3 (library)
+  https://wimlib.net
+  https://github.com/ebiggers/wimlib
+
+- Rclone (rclone_amd64.exe, rclone_x86.exe) — MIT License
+  https://github.com/rclone/rclone
+
+- WinFsp — Windows File System Proxy (winfsp-x64.sys/dll, winfsp-x86.sys/dll) —
+  GPL v3 with FLOSS linking exception
+  https://github.com/winfsp/winfsp
+
+- Microsoft Universal C Runtime / API Set DLLs (ucrt_x64/, ucrt_x86/:
+  ucrtbase.dll, vcruntime140.dll, api-ms-win-core-*.dll, api-ms-win-crt-*.dll)
+  — Subject to Microsoft Visual C++ Redistributable redistribution rights
+  granted as part of the Windows SDK / Visual Studio license. These files are
+  Microsoft components and remain the property of Microsoft Corporation.
+  https://learn.microsoft.com/en-us/cpp/windows/universal-crt-deployment
