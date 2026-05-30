@@ -24,6 +24,51 @@
 
 ---
 
+> The voiceover is in Turkish. English subtitles can be enabled on YouTube.
+>
+> Special thanks to **Tayfın AKKOYUN** for his support.
+
+<table>
+<tr>
+<td align="center" width="50%">
+<a href="https://www.youtube.com/watch?v=shk1Y1-UFkQ">
+<img src="https://img.youtube.com/vi/shk1Y1-UFkQ/maxresdefault.jpg" alt="iPXE Manager Arayüz Tanıtımı" width="100%">
+<br><strong>1. iPXE Manager Arayüz Tanıtımı</strong><br>
+<em>Introduction to the iPXE Manager Interface (Features and Usage)</em>
+</a>
+</td>
+
+<td align="center" width="50%">
+<a href="https://www.youtube.com/watch?v=0ym_-8_htto">
+<img src="https://img.youtube.com/vi/0ym_-8_htto/maxresdefault.jpg" alt="Windows ISO Entegrasyonu" width="100%">
+<br><strong>2. iPXE ile Windows ISO Entegrasyonu ve Kurulumu</strong><br>
+<em>Windows ISO Integration and Installation via iPXE</em>
+</a>
+</td>
+</tr>
+
+<tr>
+<td align="center" width="50%">
+<a href="https://www.youtube.com/watch?v=7Rm8zQ5R_So">
+<img src="https://img.youtube.com/vi/7Rm8zQ5R_So/maxresdefault.jpg" alt="Linux ISO Entegrasyonu" width="100%">
+<br><strong>3. iPXE ile Linux ISO Entegrasyonu ve Kurulumu</strong><br>
+<em>Linux ISO Integration and Installation via iPXE</em>
+</a>
+</td>
+
+<td align="center" width="50%">
+<a href="https://www.youtube.com/watch?v=D7PtqnsExrQ">
+<img src="https://img.youtube.com/vi/D7PtqnsExrQ/maxresdefault.jpg" alt="WinPE ISO ve WIM Entegrasyonu" width="100%">
+<br><strong>4. iPXE ile WinPE ISO ve WIM Entegrasyonu ve Kurulumu</strong><br>
+<em>WinPE ISO and WIM Integration and Installation via iPXE</em>
+</a>
+</td>
+</tr>
+</table>
+
+</details>
+
+   
 [🇹🇷 Türkçe](#türkçe-tanıtım) · [🇬🇧 English](#english-introduction)
 
 </div>
