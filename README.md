@@ -10,6 +10,10 @@
 
 ![sample](https://github.com/abdullah-erturk/iPXE-Manager/blob/main/preview.jpg)
 
+## Link:
+
+[![Stable?](https://img.shields.io/badge/Release-v1.svg?style=flat)](https://github.com/abdullah-erturk/iPXE-Manager/archive/refs/heads/main.zip)
+
 # ⚡ iPXE Manager
 
 *Network boot management panel for WinPE, Windows and Linux ISO files over PXE*
