@@ -30,7 +30,7 @@
 | Version | Changelog |
 |--------|------------|
 | v1 | İlk Sürüm / First Release |
-| v1 Fix | Eksik çeviri dil metinleri eklendi / Missing translated language texts have been added. |
+| v1 fix | Eksik çeviri dil metinleri eklendi / Missing translated language texts have been added. |
 
 </details>
     
