@@ -86,9 +86,6 @@ Special thanks to **Tayfın AKKOYUN** for his support.
 
 </details>
 
-   
-[🇹🇷 Türkçe](#türkçe-tanıtım) · [🇬🇧 English](#english-introduction)
-
 </div>
 
 ## Türkçe Tanıtım
