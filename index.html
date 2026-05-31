@@ -801,9 +801,9 @@
                 const res = await fetch(`/Lang/${lang}.ini`);
                 const text = await res.text(); translations = {};
                 text.split('\n').forEach(line => { const [k, ...v] = line.trim().split('='); if(k && v.length) translations[k.trim()] = v.join('=').trim(); });
-                document.querySelectorAll('[data-i18n]').forEach(el => { const k = el.getAttribute('data-i18n'); if(translations[k]) el.innerHTML = translations[k].replace(/\n/g, '<br>'); });
-                document.querySelectorAll('[data-i18n-title]').forEach(el => { const k = el.getAttribute('data-i18n-title'); if(translations[k]) el.title = translations[k]; });
-                document.querySelectorAll('[data-i18n-placeholder]').forEach(el => { const k = el.getAttribute('data-i18n-placeholder'); if(translations[k]) el.placeholder = translations[k]; });
+                document.querySelectorAll('[data-i18n]').forEach(el => { const k = el.getAttribute('data-i18n'); if(translations[k]) el.innerHTML = translations[k].replace(/\\n/g, '<br>'); });
+                document.querySelectorAll('[data-i18n-title]').forEach(el => { const k = el.getAttribute('data-i18n-title'); if(translations[k]) el.title = translations[k].replace(/\\n/g, '\n'); });
+                document.querySelectorAll('[data-i18n-placeholder]').forEach(el => { const k = el.getAttribute('data-i18n-placeholder'); if(translations[k]) el.placeholder = translations[k].replace(/\\n/g, '\n'); });
                 if (currentView === 'dhcp') {
                     showDhcp();
                 } else {
