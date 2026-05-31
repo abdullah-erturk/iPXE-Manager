@@ -25,6 +25,20 @@
 ---
 
 <details>
+<summary><strong>📋 Değişiklikler / Changelog</strong></summary>
+
+| Version | Changelog |
+|--------|------------|
+| v1 | İlk Sürüm / First Release |
+| v1 Fix | Eksik çeviri dil metinleri eklendi / Missing translated language texts have been added. |
+
+</details>
+    
+[🇹🇷 Türkçe](#türkçe-tanıtım) · [🇬🇧 English](#english-introduction)
+
+</div>
+
+<details>
 <summary><strong>🎬 Tanıtım Videoları / Promotional Videos</strong></summary>
 
 <br>
