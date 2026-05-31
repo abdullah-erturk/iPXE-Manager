@@ -5,11 +5,68 @@ https://erturk-dev.netlify.app
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+SCOPE OF THIS LICENSE / LİSANS KAPSAMI
+
+This Custom License applies ONLY to original works created by Abdullah ERTÜRK
+that are part of this repository, including but not limited to:
+
+  - server.py (and its compiled form "iPXE Manager.exe")
+  - davinst.py (and its compiled forms davinst_x86.exe / davinst_amd64.exe)
+  - index.html
+  - Lang/*.ini (translation files authored by the project)
+  - README.md, LICENSE
+  - Any other original code, configuration, or asset authored by the project
+
+This Custom License DOES NOT apply to the third-party components bundled in
+this distribution (see "THIRD-PARTY COMPONENTS" section below). Those
+components remain under their own original licenses (GPL, MIT, BSD, etc.) and
+may be used, modified, copied, and redistributed in accordance with the terms
+of their respective licenses — including for COMMERCIAL purposes where
+permitted by those licenses. The non-commercial restriction and other
+conditions of this Custom License DO NOT extend to those third-party
+components, and nothing in this Custom License shall be construed to add
+additional restrictions to them.
+
+In other words: aggregating these third-party binaries alongside this
+project for distribution constitutes "mere aggregation" and does not place
+the third-party components under this Custom License.
+
+──────────────────────────────────────────────────────────────────────────────
+
+(Türkçe — Bilgilendirme Amaçlı / Bağlayıcı Metin Yukarıdaki İngilizce Metindir)
+
+Bu Özel Lisans YALNIZCA Abdullah ERTÜRK tarafından bu projeye özgün olarak
+yazılmış eserlere uygulanır. Bu eserler şunları içerir (bunlarla sınırlı
+olmamak üzere):
+
+  - server.py (ve derlenmiş hali "iPXE Manager.exe")
+  - davinst.py (ve derlenmiş halleri davinst_x86.exe / davinst_amd64.exe)
+  - index.html
+  - Lang/*.ini (proje tarafından yazılan çeviri dosyaları)
+  - README.md, LICENSE
+  - Proje tarafından yazılmış diğer tüm özgün kod, yapılandırma ve içerikler
+
+Bu Özel Lisans, bu dağıtım içinde yer alan üçüncü taraf bileşenlere
+UYGULANMAZ (aşağıdaki "ÜÇÜNCÜ TARAF BİLEŞENLER" bölümüne bakınız). Söz
+konusu bileşenler kendi orijinal lisansları (GPL, MIT, BSD vb.) altında
+kalır ve ilgili lisanslarının izin verdiği ölçüde — TİCARİ amaçlar dahil
+olmak üzere — kullanılabilir, değiştirilebilir, kopyalanabilir ve yeniden
+dağıtılabilir. Bu Özel Lisans'ın ticari kullanım yasağı ve diğer koşulları
+bu üçüncü taraf bileşenleri KAPSAMAZ ve bu Özel Lisans'taki hiçbir hüküm,
+söz konusu bileşenlere ek kısıtlama getiriyor şeklinde yorumlanamaz.
+
+Başka bir deyişle: bu üçüncü taraf binarylerini bu projeyle birlikte dağıtım
+amacıyla yan yana paketlemek "salt birleştirme" (mere aggregation) niteliği
+taşır; söz konusu bileşenleri bu Özel Lisans kapsamına almaz.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 ENGLISH
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to use,
-copy, modify, and distribute the Software, subject to the following conditions:
+Subject to the SCOPE clause above, permission is hereby granted, free of
+charge, to any person obtaining a copy of this software and associated
+documentation files (the "Software"), to use, copy, modify, and distribute
+the Software, subject to the following conditions:
 
 1. NON-COMMERCIAL USE ONLY
    The Software may not be used, in whole or in part, for commercial purposes.
@@ -79,8 +136,34 @@ kopyalayabilir, değiştirebilir ve dağıtabilirsiniz:
 
 THIRD-PARTY COMPONENTS / ÜÇÜNCÜ TARAF BİLEŞENLER
 
-This project includes or depends on the following third-party components,
-each subject to their own license terms:
+The components listed below are bundled with this distribution but ARE NOT
+covered by the Custom License above. Each component remains under its own
+original license. Recipients may use, modify, copy, and redistribute these
+components solely in accordance with their respective licenses, INCLUDING
+for commercial purposes where permitted by those licenses.
+
+For GPL-licensed components, the complete corresponding source code is
+available at the upstream URLs listed below. Recipients of this distribution
+may obtain the source code from those URLs at no charge. No additional
+restrictions beyond those imposed by the upstream GPL licenses are placed on
+these components by this distribution.
+
+(Türkçe — Bilgilendirme Amaçlı / Bağlayıcı Metin Yukarıdaki İngilizce Metindir)
+
+Aşağıda listelenen bileşenler bu dağıtımla birlikte verilmektedir; ancak
+yukarıdaki Özel Lisans kapsamında DEĞİLDİR. Her bileşen kendi orijinal
+lisansı altında kalır. Alıcılar bu bileşenleri yalnızca ilgili lisanslarına
+uygun olarak — söz konusu lisansların izin verdiği ölçüde TİCARİ amaçlar
+dahil olmak üzere — kullanabilir, değiştirebilir, kopyalayabilir ve yeniden
+dağıtabilir.
+
+GPL lisanslı bileşenler için ilgili tam kaynak kodu, aşağıda belirtilen
+upstream URL'lerden temin edilebilir. Bu dağıtımın alıcıları, söz konusu
+kaynak kodunu o adreslerden ücretsiz olarak alabilir. Bu dağıtım, upstream
+GPL lisanslarının getirdiği koşulların ötesinde söz konusu bileşenlere
+herhangi bir ek kısıtlama getirmez.
+
+The following third-party components are included:
 
 - pxesrv.exe (TinyPXE Server) by Erwan Labalec — Freeware, closed source
   http://erwan.labalec.fr/tinypxe/
