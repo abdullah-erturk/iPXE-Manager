@@ -1,0 +1,157 @@
+#!ipxe
+#
+# NE YAPTIĞINIZI BİLMİYORSANIZ DOSYAYI DÜZENLEMEYİN. SİSTEMİN ÇALIŞMASI OLUMSUZ ETKİLENEBİLİR.
+#
+# DO NOT EDIT THE FILE IF YOU DON'T KNOW WHAT YOU'RE DOING. THE SYSTEM'S OPERATION MAY BE ADVERSELY AFFECTED.
+#
+# iPXE Unified Secure Boot Script
+#
+
+# --- Variables and Color Definitions ---
+set esc:hex 1b
+set bold ${esc:string}[1m
+set boldoff ${esc:string}[22m
+set ital ${esc:string}[3m
+set italoff ${esc:string}[23m
+set under ${esc:string}[4m
+set underoff ${esc:string}[24m
+set fg_gre ${esc:string}[32m
+set fg_cya ${esc:string}[36m
+set fg_whi ${esc:string}[37m
+set fg_yel ${esc:string}[33m
+set home ${esc:string}[H
+
+set site_name iPXE Manager | iPXE Server
+set boot_domain 10.50.1.57
+set boot-url http://${boot_domain}
+set version 2 (g12798) 
+
+# --- Main Screen (Splash Screen / Branding) ---
+:start
+echo -n ${esc:string}[2J${esc:string}[H
+echo ${bold}${fg_gre}${site_name} ${fg_whi}v${version} (Secure Boot)${boldoff}
+echo ${bold}${fg_cya}https://${boot_domain}${boldoff}
+echo ${fg_whi}DNS HTTP HTTPS iSCSI TFTP VLAN AoE EFI Menu (Secure Boot)${boldoff}
+echo ${fg_whi}System equipment is being prepared....${boldoff}
+echo
+echo ${bold}${fg_whi}${fg_gre}by Abdullah ERTURK${fg_whi}${boldoff}
+echo ${bold}${fg_whi}erturk-dev.netlify.app | github.com/abdullah-erturk${boldoff}
+prompt --key m --timeout 2000 To open the safe mode menu, press the ${bold}m${boldoff} key..... && goto failsafe || goto dhcp
+
+:dhcp
+echo
+dhcp || goto netconfig
+goto main_menu
+
+# --- Main Menu Design and Settings ---
+:main_menu
+# Creating Dynamic Information Lines
+cpuid --ext 29 && set arch x86_64 || set arch i386
+set info_text CPU: ${platform} ${arch}
+
+:build_info
+# Add other information
+set info_text ${info_text} | Brand: ${manufacturer} ${product} | IP: ${net0/ip}
+console --x 1024 --y 768
+console --picture ${boot-url}/splash.png
+
+:menu_loop
+menu ${fg_cya}${bold} ${site_name} iPXE HTTP BOOT MENU | by Abdullah ERTURK
+item
+item --gap ${bold}${fg_yel}${info_text}
+item
+item --gap ${fg_cya}${bold} iPXE MULTIBOOT MENU 
+item 
+isset ${efi-32} || item HDD ${bold}${fg_whi}		Boot from local disk
+
+# --- DYNAMIC MENU START ---
+
+# --- DYNAMIC MENU END ---
+
+item
+item --gap ${fg_gre}${bold} ---------------------------------------------------------------------------- 
+item
+item --gap ${fg_cya}${bold} SYSTEM TERMINATION AND TOOLS MENU
+item
+item --key s shell				${bold}${fg_whi}	[s] iPXE Shell
+item --key r reboot				${bold}${fg_whi}	[r] Restart
+item --key p poweroff			${bold}${fg_whi}	[p] Poweroff
+iseq ${platform} efi && item --key u efibios ${bold}${fg_whi} [u] UEFI BIOS Settings ||
+item
+item about ${fg_cya}${bold} ABOUT iPXE SERVER
+choose --default HDD --timeout 10000 target && goto ${target}
+
+# --- Menu Operations ---
+:about
+menu ${fg_cya}${bold}About iPXE Server
+item menu_loop ${fg_cya}${bold} Go To Main Menu...${boldoff}
+item 
+item --gap --  --------------------------------------------------------------------------
+item 
+item --gap ${fg_gre}${bold} iPXE is an environment that allows computers to boot via network
+item --gap ${fg_gre}${bold} cards without the need for storage devices. The iPXE environment
+item --gap ${fg_gre}${bold} connects to the network using DHCP and BOOT protocols, and loads
+item --gap ${fg_gre}${bold} the necessary boot program via HTTP and FTP protocols to enable
+item --gap ${fg_gre}${bold} installation, backup, restoration and maintenance of operating
+item --gap ${fg_gre}${bold} systems.
+item 
+item --gap ${fg_yel}${bold} If you think you have reached the iPXE menu screen by accident,
+item --gap ${fg_yel}${bold} restart your computer and wait for the installed OS to boot.
+item  
+item --gap ${fg_cya}${bold} iPXE Manager
+item --gap --  --------------------------------------------------------------------------
+choose selected || goto menu_loop
+goto ${selected}
+
+:shell
+echo 
+echo ${fg_yel}${bold} Type Help and press Enter for assistance... 
+echo ${fg_yel}${bold} For the previous menu, type exit and press Enter...
+echo
+shell
+goto menu_loop
+
+:HDD
+reboot
+
+# --- DYNAMIC BOOT START ---
+
+# --- DYNAMIC BOOT END ---
+
+# --- Failsafe and Support Areas ---
+:failsafe
+menu Failsafe Menu
+item localboot Boot from local disk
+item netconfig Network configuration is done manually.
+item retry Try connecting to the iPXE server again.
+item debug iPXE Shell
+item reboot Restart
+choose failsafe_choice || goto start
+goto ${failsafe_choice}
+
+:localboot
+exit
+
+:netconfig
+ifstat
+echo -n IP: && read netX/ip
+echo -n Subnet: && read netX/netmask
+echo -n Gateway: && read netX/gateway
+ifopen netX
+goto menu_loop
+
+:retry
+goto start
+
+:debug
+shell
+goto failsafe
+
+:reboot
+reboot
+
+:poweroff
+poweroff
+
+:efibios
+reboot -s
