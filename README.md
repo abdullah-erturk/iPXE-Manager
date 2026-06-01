@@ -144,6 +144,97 @@ Bu proje iki temel bileşen üzerine inşa edilmiştir:
 </details>
 
 <details>
+<summary><strong>⚔️ Karşılaştırma — iPXE Manager vs iVentoy vs Bootimus</strong></summary>
+
+<br>
+
+> Bu karşılaştırma, projenin güçlü olduğu **Windows ISO + Modifiye WinPE** alanını öne çıkarmak ve eksik olduğu alanları dürüstçe belirtmek için hazırlanmıştır.
+
+### Mimari ve Dağıtım
+
+| Özellik | **iPXE Manager** | iVentoy | Bootimus |
+|---|---|---|---|
+| Dil | Python (Flask) | C | Go |
+| Platform | Windows | Windows + Linux | Linux + Docker (çoklu mimari) |
+| Dağıtım | Tek `.exe` | Tek `.exe` | Tek binary / Docker / USB |
+| Veri saklama | JSON dosyaları | Dosya tabanlı | SQLite / PostgreSQL |
+| Kaynak kod | ✅ Açık (Python) | ❌ Kapalı | ✅ Açık (Go) |
+
+### Boot Yetenekleri
+
+| Özellik | **iPXE Manager** | iVentoy | Bootimus |
+|---|---|---|---|
+| Linux ISO desteği | ✅ 20+ dağıtım (Ubuntu/Mint/Pop, Debian/Kali/MX, Fedora/Rocky/Alma, openSUSE, Arch/Endeavour, Manjaro, Alpine, Void, NixOS) + generic fallback | ✅ 1100+ ISO veritabanı | ✅ 50+ dağıtım |
+| Tespit yaklaşımı | ✅ **Aile tabanlı yapısal tespit** — ISO içindeki klasör yapısından otomatik tanır (10 grup → 20+ dağıtım kapsar). Yeni dağıtım sürümleri için güncelleme gerekmez | ⚠️ Curate edilmiş ISO veritabanı — her yeni ISO için güncelleme gerekir | ⚠️ Distro başına JSON profil dosyaları — her dağıtım için ayrı tanım |
+| Windows ISO kurulum | ✅ WebClient → WinFsp/rclone | ✅ WebDAV tabanlı | ✅ wimboot + SMB |
+| Standart WinPE (.wim) | ✅ | ✅ | ✅ |
+| **Modifiye WinPE (Sergei Strelec, Hiren's PE)** | ✅ **Tam çalışır — ISO içindeki tüm programlara WebDAV üzerinden erişilebilir** | ❌ ISO mount edilemiyor (programlara erişilemez) | ❌ Desteklenmez |
+| UEFI/BIOS mimari farkındalığı | ✅ x86 WinPE UEFI'de otomatik gizlenir | ⚠️ Manuel ayar | ✅ |
+| Secure Boot uyumluluk | ✅ Microsoft imzalı iPXE | ❌ Secure Boot devre dışı bırakılmalı | ✅ |
+
+### WinPE / Windows Tarafı
+
+| Özellik | **iPXE Manager** | iVentoy | Bootimus |
+|---|---|---|---|
+| WinPE WebClient (yerli WebDAV, mount gerektirmez) | ✅ Öncelikli yöntem | ❌ | ❌ |
+| WinFsp + rclone fallback (WebClient yoksa) | ✅ Otomatik | ⚠️ Sınırlı | ❌ |
+| x86 + x64 WinPE çift mimari desteği | ✅ Mimari otomatik tespit + uygun binary enjekte | ⚠️ x64 odaklı | ⚠️ x64 odaklı |
+| UCRT / API Set DLL enjeksiyonu (x86 WinPE için) | ✅ 80 DLL otomatik | ❌ | ❌ |
+| Unattend.xml ile sessiz Windows kurulumu | ✅ Panelden yükle | ✅ | ❌ |
+| Windows 11 bypass (TPM/Secure Boot/RAM) | ✅ Registry otomatik | ❌ Manuel | ❌ |
+| ISO içerik tarayıcısı (panelden) | ✅ | ✅ | ⚠️ Sınırlı |
+
+### Yönetim Paneli
+
+| Özellik | **iPXE Manager** | iVentoy | Bootimus |
+|---|---|---|---|
+| Web tabanlı yönetim paneli | ✅ Modern, responsive | ⚠️ Temel | ✅ Modern, REST API |
+| Çoklu dil (kullanıcı eklenebilir) | ✅ `Lang/*.ini`, otomatik tespit | ⚠️ Sabit diller | ❌ Sadece İngilizce |
+| Karanlık / aydınlık tema | ✅ | ❌ | ✅ |
+| Şifre koruması | ✅ Opsiyonel | ❌ | ✅ JWT + bcrypt |
+| LDAP/AD doğrulama | ❌ | ❌ | ✅ |
+| Sürükle-bırak menü sıralama | ✅ | ❌ | ❌ |
+| Alias / açıklama düzenleme | ✅ | ❌ | ✅ |
+| Canlı extract log | ✅ Polling tabanlı | ⚠️ Sınırlı | ✅ Streaming |
+| MAC bazlı erişim kontrolü (ACL) | ❌ | ❌ | ✅ |
+| Donanım envanteri | ❌ | ❌ | ✅ |
+| Built-in araçlar (GParted/Clonezilla/Memtest) | ❌ | ⚠️ Bazıları | ✅ |
+| Arayüz özelleştirme (logo / arka plan) | ✅ `splash.png` elle değiştirilebilir | ❌ Sabit görünüm | ❌ Sabit görünüm |
+| Kullanım kolaylığı (ISO/WIM ekle → boot) | ✅ Sürükle-bırak, otomatik tespit | ✅ Çok basit | ⚠️ Daha teknik panel |
+
+### Ağ Yapılandırması
+
+| Özellik | **iPXE Manager** | iVentoy | Bootimus |
+|---|---|---|---|
+| ProxyDHCP modu | ✅ TinyPXE motor | ✅ Yerleşik | ✅ Yerleşik |
+| Harici DHCP entegrasyonu | ✅ Tek-tık `.bat` (Option 66/67) | ⚠️ Manuel | ⚠️ Manuel (Dnsmasq/MikroTik dokümantasyonu) |
+| Windows Firewall otomasyonu | ✅ Tek-tık `.bat` | ❌ | ❌ |
+| Windows servisi olarak çalıştırma | ✅ | ✅ | ⚠️ Linux odaklı |
+
+### Lisans ve Maliyet
+
+| Özellik | **iPXE Manager** | iVentoy | Bootimus |
+|---|---|---|---|
+| Lisans | Custom (ticari olmayan) | Proprietary | Apache 2.0 |
+| Ücret | Ücretsiz (ticari olmayan) | **Ücretsiz: max 20 istemci**, üzeri için **Pro Edition ($49/lisans)** | Ücretsiz |
+| Ticari kullanım | ❌ Yasak | 💰 Ücretli lisans gerekir | ✅ Serbest |
+
+### Özet
+
+**iPXE Manager'ın güçlü yanları:** Windows ISO + Modifiye WinPE entegrasyonu (Sergei Strelec gibi recovery toolkit'leri), WebClient öncelikli akıllı mount stratejisi, x86 + x64 WinPE çift mimari desteği, çoklu dil ve Türkçe arayüz.
+
+**iPXE Manager'ın eksikleri:** MAC bazlı ACL, LDAP, donanım envanteri, built-in araçlar (GParted vb.), Docker/Linux dağıtımı.
+
+**Hangisini seçmeli?**
+- 🪟 **Windows-ağırlıklı ortam + modifiye WinPE + Secure Boot etkin cihazlar + kolayca yeni dil ekleyebilme + özelleştirilebilir görünüm** → iPXE Manager
+- 📚 **Çok geniş ISO veritabanı (1100+) + ARM64 ihtiyacı** → iVentoy (≤20 istemci ücretsiz; aksi takdirde $49 Pro)
+- 🏢 **Ticari kullanım gerekiyorsa + MAC ACL/LDAP/REST API/Docker gerektiren kurumsal Linux ortam** → Bootimus
+
+> **Not:** iPXE Manager da kullanıcı için "ISO ekle → boot" kadar basit. Kullanım kolaylığı tek başına iVentoy'a özgü değil — fark, iVentoy'un üzerinde çalıştığı 1100+ ISO veritabanı ve ARM64 desteği.
+
+</details>
+
+<details>
 <summary><strong>🐧 Evrensel Linux Desteği</strong></summary>
 
 iPXE Manager, Linux dağıtımını ISO yapısından (dosya adından değil) otomatik olarak tespit eder ve doğru önyükleme yöntemini uygular.
@@ -364,6 +455,97 @@ This project builds on two key components:
 - 💾 **Persistent settings** — the Save Settings button writes server IP/domain, interface language, theme (dark/light), default boot target, and countdown duration to `app_settings.json`; it then re-scans all Linux ISOs and regenerates the iPXE boot menu automatically
 
 > 💡 **To add a new language:** Copy `English.ini` from the `Lang/` folder, translate the section name and values. No other files need to be modified.
+
+</details>
+
+<details>
+<summary><strong>⚔️ Comparison — iPXE Manager vs iVentoy vs Bootimus</strong></summary>
+
+<br>
+
+> This comparison highlights the project's strengths in **Windows ISO + Modified WinPE** and honestly indicates the areas where it falls short.
+
+### Architecture & Deployment
+
+| Feature | **iPXE Manager** | iVentoy | Bootimus |
+|---|---|---|---|
+| Language | Python (Flask) | C | Go |
+| Platform | Windows | Windows + Linux | Linux + Docker (multi-arch) |
+| Distribution | Single `.exe` | Single `.exe` | Single binary / Docker / USB |
+| Data storage | JSON files | File-based | SQLite / PostgreSQL |
+| Source code | ✅ Open (Python) | ❌ Closed | ✅ Open (Go) |
+
+### Boot Capabilities
+
+| Feature | **iPXE Manager** | iVentoy | Bootimus |
+|---|---|---|---|
+| Linux ISO support | ✅ 20+ distros (Ubuntu/Mint/Pop, Debian/Kali/MX, Fedora/Rocky/Alma, openSUSE, Arch/Endeavour, Manjaro, Alpine, Void, NixOS) + generic fallback | ✅ 1100+ ISO database | ✅ 50+ distros |
+| Detection approach | ✅ **Family-based structural detection** — auto-detected from the ISO's internal layout (10 groups → 20+ distros covered). No update needed when a new distro version is released | ⚠️ Curated ISO database — requires an update for each new ISO | ⚠️ Per-distro JSON profile files — separate definition for each distribution |
+| Windows ISO installation | ✅ WebClient → WinFsp/rclone | ✅ WebDAV-based | ✅ wimboot + SMB |
+| Standard WinPE (.wim) | ✅ | ✅ | ✅ |
+| **Modified WinPE (Sergei Strelec, Hiren's PE)** | ✅ **Fully working — all programs inside the ISO are accessible via WebDAV** | ❌ Cannot mount the ISO (programs are inaccessible) | ❌ Not supported |
+| UEFI/BIOS architecture awareness | ✅ x86 WinPE auto-hidden on UEFI | ⚠️ Manual config | ✅ |
+| Secure Boot compatibility | ✅ Microsoft-signed iPXE | ❌ Secure Boot must be disabled | ✅ |
+
+### WinPE / Windows Side
+
+| Feature | **iPXE Manager** | iVentoy | Bootimus |
+|---|---|---|---|
+| WinPE WebClient (native WebDAV, no mount required) | ✅ Preferred method | ❌ | ❌ |
+| WinFsp + rclone fallback (if WebClient unavailable) | ✅ Automatic | ⚠️ Limited | ❌ |
+| x86 + x64 WinPE dual-architecture support | ✅ Auto-detected + matching binaries injected | ⚠️ x64-focused | ⚠️ x64-focused |
+| UCRT / API Set DLL injection (for x86 WinPE) | ✅ 80 DLLs automatic | ❌ | ❌ |
+| Unattend.xml for silent Windows install | ✅ Upload from panel | ✅ | ❌ |
+| Windows 11 bypass (TPM/Secure Boot/RAM) | ✅ Registry automatic | ❌ Manual | ❌ |
+| ISO content browser (from panel) | ✅ | ✅ | ⚠️ Limited |
+
+### Management Panel
+
+| Feature | **iPXE Manager** | iVentoy | Bootimus |
+|---|---|---|---|
+| Web-based management panel | ✅ Modern, responsive | ⚠️ Basic | ✅ Modern, REST API |
+| Multi-language (user-extensible) | ✅ `Lang/*.ini`, auto-detected | ⚠️ Fixed languages | ❌ English only |
+| Dark / light theme | ✅ | ❌ | ✅ |
+| Password protection | ✅ Optional | ❌ | ✅ JWT + bcrypt |
+| LDAP/AD authentication | ❌ | ❌ | ✅ |
+| Drag-and-drop menu reordering | ✅ | ❌ | ❌ |
+| Alias / description editing | ✅ | ❌ | ✅ |
+| Live extract log | ✅ Polling-based | ⚠️ Limited | ✅ Streaming |
+| MAC-based access control (ACL) | ❌ | ❌ | ✅ |
+| Hardware inventory | ❌ | ❌ | ✅ |
+| Built-in tools (GParted/Clonezilla/Memtest) | ❌ | ⚠️ Some | ✅ |
+| UI customization (logo / background) | ✅ `splash.png` manually replaceable | ❌ Fixed look | ❌ Fixed look |
+| Ease of use (add ISO/WIM → boot) | ✅ Drag-drop, auto-detection | ✅ Very simple | ⚠️ More technical panel |
+
+### Network Configuration
+
+| Feature | **iPXE Manager** | iVentoy | Bootimus |
+|---|---|---|---|
+| ProxyDHCP mode | ✅ TinyPXE engine | ✅ Built-in | ✅ Built-in |
+| External DHCP integration | ✅ One-click `.bat` (Option 66/67) | ⚠️ Manual | ⚠️ Manual (Dnsmasq/MikroTik docs) |
+| Windows Firewall automation | ✅ One-click `.bat` | ❌ | ❌ |
+| Run as Windows service | ✅ | ✅ | ⚠️ Linux-focused |
+
+### License & Cost
+
+| Feature | **iPXE Manager** | iVentoy | Bootimus |
+|---|---|---|---|
+| License | Custom (non-commercial) | Proprietary | Apache 2.0 |
+| Price | Free (non-commercial) | **Free: max 20 clients**, beyond that **Pro Edition ($49/license)** | Free |
+| Commercial use | ❌ Not permitted | 💰 Commercial license required | ✅ Allowed |
+
+### Summary
+
+**iPXE Manager strengths:** Windows ISO + Modified WinPE integration (recovery toolkits like Sergei Strelec), WebClient-first smart mount strategy, x86 + x64 WinPE dual-architecture support, multi-language with native Turkish UI.
+
+**iPXE Manager limitations:** No MAC-based ACL, no LDAP, no hardware inventory, no built-in tools (GParted, etc.), no Docker/Linux distribution.
+
+**Which one to choose?**
+- 🪟 **Windows-heavy environment + modified WinPE + Secure Boot enabled devices + drop-in multi-language support + customizable look** → iPXE Manager
+- 📚 **Massive ISO database (1100+) + ARM64 requirement** → iVentoy (free up to 20 clients; otherwise $49 Pro)
+- 🏢 **Commercial use + corporate Linux environment requiring MAC ACL/LDAP/REST API/Docker** → Bootimus
+
+> **Note:** iPXE Manager is also as easy as "add ISO → boot" for the end user. Ease of use is not unique to iVentoy — the actual differentiator is iVentoy's curated 1100+ ISO database and ARM64 support.
 
 </details>
 
