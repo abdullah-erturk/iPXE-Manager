@@ -16,6 +16,14 @@
 
 [![Stable?](https://img.shields.io/badge/Release-v1.svg?style=flat)](https://github.com/abdullah-erturk/iPXE-Manager/archive/refs/heads/main.zip)
 
+## 🎮 Live Demo / Canlı Demo
+
+[![Try the Live Demo](https://img.shields.io/badge/🎭_Live_Demo-Try_it_now-F59E0B?style=for-the-badge&labelColor=1F2937)](https://erturk-dev.netlify.app/ipxe_demo.html)
+
+*Bilgisayarınıza indirmeden yönetim panelini tarayıcı üzerinden deneyin — şifre: `admin` · Hiçbir dosya gerçekten yüklenmez, simülasyondur.*
+
+*Try accessing the control panel through your browser instead of downloading it to your computer — password: `admin` · No actual files are uploaded — it's a simulation.*
+
 # ⚡ iPXE Manager
 
 *Network boot management panel for WinPE, Windows and Linux ISO files over PXE*
