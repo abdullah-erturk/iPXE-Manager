@@ -186,44 +186,16 @@ Log "  ISO : $IsoPath" ; Log "  Out : $DestDir" ; Log ""
 if (-not (Test-Path $IsoPath)) { Log "[ERROR] ISO not found." "Red"; exit 1 }
 
 try {
-    Log "[1/4] Mounting ISO..." "Cyan"
-    $drv = ""
-    # 1) Python tarafından önceden mount edildiyse onu kullan (en güvenilir yol)
-    if ($PreMountedDrive -and $PreMountedDrive.Length -eq 1) {
-        if (Test-Path "$($PreMountedDrive):\") {
-            $drv = $PreMountedDrive
-            Log "  Using pre-mounted drive: $($drv):\" "Gray"
-        }
+    Log "[1/4] Checking ISO Mount..." "Cyan"
+    $drive = ""
+    if ($PreMountedDrive -and (Test-Path $PreMountedDrive)) {
+        $drive = $PreMountedDrive
+        if (-not $drive.EndsWith("\")) { $drive = "$drive\" }
+        Log "  Using pre-mounted folder: $drive" "Gray"
+    } else {
+        Log "[ERROR] PreMountedDrive is required for folder mount method." "Red"
+        exit 1
     }
-    # 2) Pre-mount yoksa veya geçersizse PowerShell ile mount dene
-    if (-not $drv) {
-        $m = Mount-DiskImage -ImagePath $IsoPath -PassThru -ErrorAction SilentlyContinue
-        for($i=0; $i -lt 20; $i++) {
-            $drv = ($m | Get-Volume -ErrorAction SilentlyContinue).DriveLetter
-            if ($drv) { break }
-            Start-Sleep -Milliseconds 500
-        }
-    }
-    # 3) Hala yoksa Get-DiskImage ile attached state'i kontrol et
-    if (-not $drv) {
-        $diskImg = Get-DiskImage -ImagePath $IsoPath -ErrorAction SilentlyContinue
-        if ($diskImg -and $diskImg.Attached) {
-            $drv = ($diskImg | Get-Volume -ErrorAction SilentlyContinue).DriveLetter
-        }
-    }
-    # 4) Son çare: Linux belirteçleri olan CD-ROM volume'lerini tara
-    if (-not $drv) {
-        foreach ($d in (Get-PSDrive -PSProvider FileSystem).Name) {
-            if ($d.Length -ne 1) { continue }
-            if ((Test-Path "$($d):\casper") -or (Test-Path "$($d):\LiveOS") -or (Test-Path "$($d):\live") -or (Test-Path "$($d):\boot\vmlinuz-lts") -or (Test-Path "$($d):\arch\boot")) {
-                $drv = $d
-                break
-            }
-        }
-    }
-    if (-not $drv) { Log "[ERROR] No drive letter." "Red"; exit 1 }
-    $drive = "${drv}:\"
-    Log "  Drive: $drive" "Gray"
 
     Log "[2/4] Detecting distro..." "Cyan"
     $distro = Get-DistroType -Drive $drive
@@ -331,28 +303,23 @@ Log "Started. ISO: $IsoPath"
 Log "Target : $DestDir"
 
 try {
-    Log "[1/4] Mounting ISO..."
-    $mountResult = Mount-DiskImage -ImagePath $IsoPath -PassThru -ErrorAction SilentlyContinue
-    $driveLetter = ""
-    for($i=0; $i -lt 30; $i++) {
-        $driveLetter = ($mountResult | Get-Volume -ErrorAction SilentlyContinue).DriveLetter
-        if ($driveLetter) { break }
-        Start-Sleep -Milliseconds 500
+    Log "[1/4] Mounting ISO to Temporary Folder..."
+    $mnt = Join-Path $DestDir "mnt_temp"
+    if (-not (Test-Path $mnt)) { New-Item -ItemType Directory -Force -Path $mnt | Out-Null }
+    Mount-DiskImage -ImagePath $IsoPath -NoDriveLetter -ErrorAction SilentlyContinue | Out-Null
+    Start-Sleep -Milliseconds 1000
+    $di = Get-DiskImage -ImagePath $IsoPath -ErrorAction SilentlyContinue
+    $part = $null
+    if ($di -and $di.Attached -and ($null -ne $di.Number)) {
+        $part = Get-Disk -Number $di.Number -EA SilentlyContinue | Get-Partition -EA SilentlyContinue | Sort-Object Size -Descending | Select-Object -First 1
     }
-    if (-not $driveLetter) {
-        $diskImg = Get-DiskImage -ImagePath $IsoPath -ErrorAction SilentlyContinue
-        if ($diskImg -and $diskImg.Attached) {
-            $driveLetter = ($diskImg | Get-Volume -ErrorAction SilentlyContinue).DriveLetter
-        }
+    if ($part) {
+        Add-PartitionAccessPath -DiskNumber $part.DiskNumber -PartitionNumber $part.PartitionNumber -AccessPath "$mnt\" -ErrorAction SilentlyContinue
+    } else {
+        Log "[ERROR] Failed to get partition for ISO mount."
+        exit 1
     }
-    if (-not $driveLetter) {
-        $diskImg = Get-DiskImage -ImagePath $IsoPath -ErrorAction SilentlyContinue
-        if ($diskImg -and $diskImg.Attached) {
-            $driveLetter = ($diskImg | Get-Disk -EA SilentlyContinue | Get-Partition -EA SilentlyContinue | Get-Volume -EA SilentlyContinue).DriveLetter | Select-Object -First 1
-        }
-    }
-    if (-not $driveLetter) { Log "[ERROR] Could not get drive letter."; exit 1 }
-    $drive = "${driveLetter}:\"
+    $drive = "$mnt\"
     Log "  Mounted at: $drive"
 
     $entries = @()
@@ -430,7 +397,15 @@ try {
     Log "Done. $($results.Count) WIM(s) extracted."
 
 } catch { Log "[ERROR] Unexpected error: $_"
-} finally { Log "Extraction complete. ISO remains mounted for PXE serving." }
+} finally { 
+    if ($mnt -and (Test-Path $mnt)) {
+        Log "Cleaning up temporary mount..."
+        if ($part) { Remove-PartitionAccessPath -DiskNumber $part.DiskNumber -PartitionNumber $part.PartitionNumber -AccessPath "$mnt\" -ErrorAction SilentlyContinue }
+        Dismount-DiskImage -ImagePath $IsoPath -ErrorAction SilentlyContinue | Out-Null
+        Remove-Item -Path $mnt -Force -Recurse -ErrorAction SilentlyContinue
+    }
+    Log "Extraction complete." 
+}
 """
 # ─── LINUX ÇEKİRDEK ÇIKARMA (HAYALET/NİNJA MODU) ────────────────────────────
 def _write_and_run_ps(iso_path, pre_mounted_drive=''):
@@ -640,14 +615,14 @@ def _extract_win_iso_and_regenerate(iso_path, dest_dir):
         time.sleep(0.5)
         drv = _mount_iso(folder_name)
         if not drv:
-            log("[ERROR] Mount failed: Drive letter could not be resolved.")
+            log("[ERROR] Mount failed: Mount path could not be resolved.")
             return
-        log(f"  Mounted at: {drv}:\\")
+        log(f"  Mounted at: {drv}")
         
         # sources/boot.wim çıkar
-        src_wim = os.path.join(f"{drv}:\\", 'sources', 'boot.wim')
+        src_wim = os.path.join(drv, 'sources', 'boot.wim')
         if not os.path.exists(src_wim):
-            src_wim = os.path.join(f"{drv}:\\", 'sources', 'Boot.wim')
+            src_wim = os.path.join(drv, 'sources', 'Boot.wim')
         
         if os.path.exists(src_wim):
             dst_wim = os.path.join(dest_dir, 'boot.wim')
@@ -735,9 +710,9 @@ def _extract_win_iso_and_regenerate(iso_path, dest_dir):
         if drv:
             with _iso_mounts_lock:
                 _iso_mounts[os.path.basename(dest_dir)] = drv
-            _defender_exclude(f"{drv}:\\")
+            _defender_exclude(drv)
             _defender_exclude(iso_path)
-            log(f"  ISO remains mounted at {drv}:\\ for WebDAV serving.")
+            log(f"  ISO remains mounted at {drv} for WebDAV serving.")
         
     generate_ipxe_script()
     folder_name = os.path.basename(dest_dir)
@@ -1232,7 +1207,7 @@ def generate_ipxe_script(domain=None):
                 )
             else:
                 # ── Windows Setup (ISO_WIN): WinFsp + Rclone + setup.exe ──
-                winsetup = (
+                    winsetup = (
                     CFG_HEADER +
                     "set \"SERVER_IP=\"\r\nset \"HTTP_PORT=8080\"\r\nset \"ISO_DIR=\"\r\n"
                     "if exist \"%CFG_PATH%\" (\r\n"
@@ -1297,15 +1272,38 @@ def generate_ipxe_script(domain=None):
                     "        set \"UNATTEND_PARAM=/unattend:%%F\"\r\n"
                     "        echo [+] Answer file: %%F\r\n"
                     "    )\r\n)\r\n"
-                    "if defined UNATTEND_PARAM (\r\n"
-                    "    echo [+] Launching Windows Setup with answer file, please wait...\r\n"
-                    "    %DRIVE%:\\setup.exe %UNATTEND_PARAM%\r\n"
+                    "if exist \"%DRIVE%:\\setup.exe\" (\r\n"
+                    "    echo [+] Launching Windows Setup from ISO root...\r\n"
+                    "    pushd \"%DRIVE%:\\\"\r\n"
+                    "    if defined UNATTEND_PARAM (\r\n"
+                    "        echo [+] Answer file: !UNATTEND_PARAM!\r\n"
+                    "        \"%DRIVE%:\\setup.exe\" !UNATTEND_PARAM!\r\n"
+                    "    ) else (\r\n"
+                    "        \"%DRIVE%:\\setup.exe\"\r\n"
+                    "    )\r\n"
+                    "    popd\r\n"
+                    ") else if exist \"%DRIVE%:\\sources\\setup.exe\" (\r\n"
+                    "    echo [+] Launching Windows Setup via WinPE launcher with /installfrom...\r\n"
+                    "    set \"INSTALL_SRC=%DRIVE%:\\sources\\\"\r\n"
+                    "    set \"INSTALL_FILE=\"\r\n"
+                    "    if exist \"!INSTALL_SRC!install.wim\" set \"INSTALL_FILE=!INSTALL_SRC!install.wim\"\r\n"
+                    "    if exist \"!INSTALL_SRC!install.esd\" set \"INSTALL_FILE=!INSTALL_SRC!install.esd\"\r\n"
+                    "    if exist \"!INSTALL_SRC!install.swm\" set \"INSTALL_FILE=!INSTALL_SRC!install.swm\"\r\n"
+                    "    if not defined INSTALL_FILE (\r\n"
+                    "        echo [!] ERROR: install.wim or install.esd not found in sources directory.\r\n"
+                    "    ) else (\r\n"
+                    "        if defined UNATTEND_PARAM (\r\n"
+                    "            echo [+] Answer file: !UNATTEND_PARAM!\r\n"
+                    "            X:\\setup.exe /installfrom:\"!INSTALL_FILE!\" !UNATTEND_PARAM!\r\n"
+                    "        ) else (\r\n"
+                    "            X:\\setup.exe /installfrom:\"!INSTALL_FILE!\"\r\n"
+                    "        )\r\n"
+                    "    )\r\n"
                     ") else (\r\n"
-                    "    echo [+] Launching Windows Setup, please wait...\r\n"
-                    "    %DRIVE%:\\setup.exe\r\n)\r\n"
+                    "    echo [!] ERROR: setup.exe not found in root or sources directory.\r\n"
+                    ")\r\n"
                     "echo.\r\necho [+] Setup exited. Type EXIT to reboot.\r\ncmd /k\r\n"
                 )
-
             with open(os.path.join(cmd_dir, 'WinSetup.cmd'), 'w', encoding='utf-8') as cf:
                 cf.write(winsetup)
 
@@ -1704,7 +1702,7 @@ def serve_iso_lin_root():
 def serve_iso_lin_dir(folder):
     drv = _ensure_iso_mounted(folder)
     if drv:
-        root = f"{drv}:\\"
+        root = drv
         try:
             entries = sorted(os.listdir(root))
         except Exception:
@@ -1784,7 +1782,7 @@ def serve_iso_lin(filename):
             except Exception:
                 pass
 
-    iso_file = os.path.join(f"{drv}:\\", iso_inner.replace('/', os.sep))
+    iso_file = os.path.join(drv, iso_inner.replace('/', os.sep))
     if os.path.isdir(iso_file):
         # Alt dizin browse isteği — listing döndür
         try:
@@ -1844,7 +1842,7 @@ def serve_iso_lin(filename):
                     else ['initrd.img','initrd','initramfs-linux.img','initrd.gz','initrd.lz'])
         search_dirs = ['images/pxeboot','boot/x86_64/loader','boot/x86_64',
                        'casper','live','arch/boot/x86_64','boot','isolinux']
-        root = f"{drv}:\\"
+        root = drv
         for sdir in search_dirs:
             for pat in patterns:
                 candidate = os.path.join(root, sdir.replace('/', os.sep), pat)
@@ -1855,8 +1853,8 @@ def serve_iso_lin(filename):
     try:
         log_p = os.path.join(os.path.dirname(iso_path), 'serve_debug.log')
         with open(log_p, 'w', encoding='utf-8') as lf:
-            lf.write(f"Requested : {iso_file}\nDrive     : {drv}:\\\n\n")
-            root = f"{drv}:\\"
+            lf.write(f"Requested : {iso_file}\nMount     : {drv}\n\n")
+            root = drv
             for base, dirs, fnames in os.walk(root):
                 depth = base.replace(root, '').count(os.sep)
                 if depth >= 2: dirs.clear(); continue
@@ -1867,7 +1865,7 @@ def serve_iso_lin(filename):
     except Exception:
         pass
     return Response(
-        f'[iPXE] File not found at mount point: {iso_file}\nDrive: {drv}:\\\n'
+        f'[iPXE] File not found at mount point: {iso_file}\nMount: {drv}\n'
         f'Details: /api/linux_debug/{folder}',
         status=404, mimetype='text/plain')
 
@@ -1888,11 +1886,11 @@ def linux_iso_debug(folder):
             except Exception: pass
     with _iso_mounts_lock:
         drv = _iso_mounts.get(folder)
-    if drv and os.path.exists(f"{drv}:\\"):
+    if drv and os.path.exists(drv):
         result['mounted'] = True
         result['drive']   = drv
         try:
-            root  = f"{drv}:\\"
+            root  = drv
             files = []
             for base, dirs, fnames in os.walk(root):
                 depth = base.replace(root, '').count(os.sep)
@@ -1939,7 +1937,7 @@ def serve_ubuntu_iso(filepath=''):
     if not drv:
         return Response('Ubuntu ISO not mounted', status=503)
 
-    root = f"{drv}:\\"
+    root = drv
     if filepath:
         full_path = os.path.join(root, filepath.replace('/', os.sep))
         if os.path.isfile(full_path):
@@ -2041,86 +2039,127 @@ def _defender_remove_all():
         _defender_remove_exclude(path)
 
 def _mount_iso(folder):
-    """ISO'yu mount eder, sürücü harfini döner."""
+    """ISO'yu Mount-DiskImage ile mount eder, diskpart assign mount= ile klasore baglar."""
     iso_path = _find_iso_path(folder)
     if not iso_path: return None
+
+    mnt_path    = os.path.join(PXE_DIR, 'mnt', folder)
+    mnt_path_bs = mnt_path + '\\'
+    err_log     = os.path.join(os.path.dirname(iso_path), 'mount_error.log')
+
     si = subprocess.STARTUPINFO()
     si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
     si.wShowWindow = subprocess.SW_HIDE
 
-    # Defender mount oncesi devre disi birakilir
+    def _log(msg):
+        try:
+            with open(err_log, 'w', encoding='utf-8') as f:
+                f.write(msg)
+        except Exception: pass
+
+    def _run_diskpart(script):
+        return subprocess.run(['diskpart'], input=script, capture_output=True,
+            text=True, startupinfo=si, timeout=30)
+
+    def _run_ps(cmd, timeout=30):
+        return subprocess.run(
+            ['powershell', '-NoProfile', '-WindowStyle', 'Hidden', '-Command', cmd],
+            capture_output=True, text=True, startupinfo=si, timeout=timeout)
+
+    def _find_iso_vol(diskpart_stdout):
+        """diskpart list volume ciktisinda henuz mount point atanmamis UDF/DVD-ROM volume'u bulur."""
+        lines = diskpart_stdout.splitlines()
+        # Once mount point'i olan volume numaralarini bul
+        # Diskpart'ta mount point'li volume'larin altinda bir sonraki satirda yol yazar
+        mounted_vols = set()
+        for i, line in enumerate(lines):
+            parts = line.split()
+            if len(parts) >= 2 and parts[0] == 'Volume' and parts[1].isdigit():
+                # Bir sonraki satir bu volume'un mount point'i olabilir
+                if i + 1 < len(lines):
+                    next_line = lines[i + 1].strip()
+                    if next_line.startswith('\\') or (len(next_line) > 2 and next_line[1] == ':'):
+                        mounted_vols.add(parts[1])
+
+        for line in lines:
+            parts = line.split()
+            if len(parts) < 2 or parts[0] != 'Volume' or not parts[1].isdigit():
+                continue
+            if 'No Media' in line:
+                continue
+            if 'UDF' not in line and 'DVD-ROM' not in line:
+                continue
+            # Drive letter atanmis mi?
+            ltr = line[15:18].strip() if len(line) > 18 else ''
+            if len(ltr) == 1 and ltr.isalpha():
+                continue
+            # Zaten baska bir klasore mount edilmis mi?
+            if parts[1] in mounted_vols:
+                continue
+            return parts[1]
+        return None
+
+    # --- Temizle ---
+    _run_ps(f"Dismount-DiskImage -ImagePath '{iso_path}' -EA SilentlyContinue | Out-Null")
+    time.sleep(0.5)
+
+    try:
+        subprocess.run(f'rmdir /s /q "{mnt_path}"', shell=True, capture_output=True,
+            creationflags=subprocess.CREATE_NO_WINDOW)
+    except: pass
+    os.makedirs(mnt_path, exist_ok=True)
+
     _defender_exclude(iso_path)
     _defender_exclude(os.path.dirname(iso_path))
 
-    # --- Yöntem 1: Zaten mount edilmiş mi kontrol et (Dismount yapmadan önce) ---
+    # --- ISO'yu mount et ---
     try:
-        rc = subprocess.run(
-            ['powershell', '-NoProfile', '-WindowStyle', 'Hidden', '-Command',
-             f"$d=Get-DiskImage -ImagePath '{iso_path}' -EA SilentlyContinue; "
-             f"if($d -and $d.Attached){{($d|Get-Volume).DriveLetter}}else{{''}}"],
-            capture_output=True, text=True, startupinfo=si, timeout=15)
-        existing = rc.stdout.strip()
-        if existing and len(existing) == 1 and existing.isalpha():
-            _defender_exclude(f"{existing}:\\")
-            _defender_exclude(iso_path)
-            return existing
-    except Exception:
-        pass
-
-    # --- Yöntem 2: Mount + multi-fallback drive letter detection ---
-    try:
-        # Önce olası kalıntı mount'u temizle
-        subprocess.run(
-            ['powershell', '-NoProfile', '-WindowStyle', 'Hidden', '-Command',
-             f"Dismount-DiskImage -ImagePath '{iso_path}' -EA SilentlyContinue | Out-Null"],
-            startupinfo=si, timeout=15)
-        time.sleep(1.0)  # Drive letter serbest bırakılana kadar bekle
-
-        # Mount + 30 iterasyon * 500ms = 15s polling + 2 katmanlı Get-DiskImage fallback
-        r = subprocess.run(
-            ['powershell', '-NoProfile', '-WindowStyle', 'Hidden', '-Command',
-             f"$m = Mount-DiskImage -ImagePath '{iso_path}' -PassThru -EA SilentlyContinue; "
-             f"$drv = ''; "
-             f"for($i=0; $i -lt 30; $i++) {{ "
-             f"  if ($m) {{ $drv = ($m | Get-Volume -EA SilentlyContinue).DriveLetter; if ($drv) {{ break }} }} "
-             f"  Start-Sleep -Milliseconds 500 "
-             f"}}; "
-             f"if (-not $drv) {{ "
-             f"  $di = Get-DiskImage -ImagePath '{iso_path}' -EA SilentlyContinue; "
-             f"  if ($di -and $di.Attached) {{ $drv = ($di | Get-Volume -EA SilentlyContinue).DriveLetter }} "
-             f"}}; "
-             f"if (-not $drv) {{ "
-             f"  $di = Get-DiskImage -ImagePath '{iso_path}' -EA SilentlyContinue; "
-             f"  if ($di -and $di.Attached) {{ $drv = ($di | Get-Disk -EA SilentlyContinue | Get-Partition -EA SilentlyContinue | Get-Volume -EA SilentlyContinue).DriveLetter | Select-Object -First 1 }} "
-             f"}}; "
-             f"$drv"],
-            capture_output=True, text=True, startupinfo=si, timeout=90)
-        drv = r.stdout.strip()
-        if drv and len(drv) == 1 and drv.isalpha():
-            _defender_exclude(f"{drv}:\\")
-            _defender_exclude(iso_path)
-            return drv
-
-        # Yontem 2 basarisiz: hata logla
-        try:
-            with open(os.path.join(os.path.dirname(iso_path), 'mount_error.log'), 'w') as ef:
-                ef.write(f"stdout:{r.stdout}\nstderr:{r.stderr}\n")
-        except Exception: pass
+        _run_ps(f"Mount-DiskImage -ImagePath '{iso_path}' -NoDriveLetter | Out-Null", timeout=60)
+        time.sleep(2)
     except Exception as e:
+        _log(f"Mount-DiskImage failed: {e}\n")
+        return None
+
+    # --- Volume'u bul ve klasore bagla ---
+    try:
+        r = _run_diskpart('list volume\n')
+        vol_num = _find_iso_vol(r.stdout)
+
+        _log(f"diskpart output:\n{r.stdout}\nselected vol: {vol_num}\n")
+
+        if vol_num is None:
+            _log(f"ISO volume not found.\n{r.stdout}\n")
+            return None
+
+        r2 = _run_diskpart(f'select volume {vol_num}\nassign mount="{mnt_path}"\n')
         try:
-            with open(os.path.join(os.path.dirname(iso_path), 'mount_error.log'), 'w') as ef:
-                ef.write(f"Exception:{e}\n")
-        except Exception: pass
+            with open(err_log, 'a', encoding='utf-8') as f:
+                f.write(f"assign result:\n{r2.stdout}\n")
+        except: pass
 
-    return None
+        time.sleep(0.5)
 
+        if os.path.isdir(mnt_path) and os.listdir(mnt_path):
+            _defender_exclude(mnt_path_bs)
+            _defender_exclude(iso_path)
+            return mnt_path_bs
+
+        _log(f"Folder empty after assign.\n{r2.stdout}\n")
+        return None
+
+    except Exception as e:
+        _log(f"Exception: {e}\n")
+        return None
 def _ensure_iso_mounted(folder):
     with _iso_mounts_lock:
         if folder in _iso_mounts:
             drv = _iso_mounts[folder]
-            if drv and os.path.exists(f"{drv}:\\"): return drv
+            mnt = drv.rstrip('\\') if drv else ''
+            if drv and os.path.isdir(mnt) and os.listdir(mnt):
+                children = [c.lower() for c in os.listdir(mnt)]
+                if any(c in ('sources','boot','efi','isolinux','casper','live') for c in children):
+                    return drv
             _iso_mounts.pop(folder, None)
-    # Mount islemi LOCK DISINDA (60 sn surabilir, diger thread'leri bloklamaz)
     drv = _mount_iso(folder)
     with _iso_mounts_lock:
         if drv: _iso_mounts[folder] = drv
@@ -2128,40 +2167,71 @@ def _ensure_iso_mounted(folder):
     return drv
 
 def _unmount_iso(folder):
-    """Tek bir ISO'yu unmount eder ve Defender exclusion'ını temizler."""
-    with _iso_mounts_lock: drv = _iso_mounts.get(folder)
-    if drv: _defender_remove_exclude(f"{drv}:\\")
+    """diskpart remove mount= ile klasor bagini kaldirir, ISO'yu dismount eder."""
+    with _iso_mounts_lock: _iso_mounts.pop(folder, None)
+
+    mnt_path = os.path.join(PXE_DIR, 'mnt', folder)
     iso_path = _find_iso_path(folder)
+
+    si = subprocess.STARTUPINFO()
+    si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    si.wShowWindow = subprocess.SW_HIDE
+
+    def _run_diskpart(script):
+        return subprocess.run(['diskpart'], input=script, capture_output=True,
+            text=True, startupinfo=si, timeout=30)
+
+    # diskpart ile mount point'e gore volume'u bul ve bagli kaldır
+    # "select volume X" + "remove mount=..." yerine direkt mount path ile sec:
+    # diskpart'ta "list volume" + "select volume" + "remove mount=" kullan
+    # Hangi volume bu klasore bagli? diskpart'ta mount point listelenmiyor,
+    # bu yuzden ISO path'ine gore Dismount once yapip sonra rmdir yeterli.
+    try:
+        # Once mount point'i kaldir: en guvenlisi dismount + rmdir
+        # (Dismount-DiskImage zaten mount point'i de kaldirir)
+        pass
+    except Exception: pass
+
+    # ISO'yu dismount et (mount point'i de otomatik kaldirir)
     if iso_path:
         _defender_remove_exclude(iso_path)
         _defender_remove_exclude(os.path.dirname(iso_path))
         try:
-            si = subprocess.STARTUPINFO()
-            si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-            si.wShowWindow = subprocess.SW_HIDE
-            subprocess.run(['powershell', '-NoProfile', '-WindowStyle', 'Hidden', '-Command',
+            subprocess.run(
+                ['powershell', '-NoProfile', '-WindowStyle', 'Hidden', '-Command',
                  f"Dismount-DiskImage -ImagePath '{iso_path}' -EA SilentlyContinue | Out-Null"],
                 startupinfo=si, timeout=15)
         except Exception: pass
-    with _iso_mounts_lock: _iso_mounts.pop(folder, None)
 
+    # Klasoru temizle
+    try:
+        time.sleep(0.3)
+        subprocess.run(f'rmdir /s /q "{mnt_path}"', shell=True, capture_output=True,
+            creationflags=subprocess.CREATE_NO_WINDOW)
+    except: pass
 def _unmount_all_isos():
     """Tüm mount edilmiş ISO'ları unmount eder ve Defender exclusion'larını kaldırır."""
     try:
-        # 1. Kayıtlı olanları temizle
         with _iso_mounts_lock:
             folders = list(_iso_mounts.keys())
         for folder in folders:
             _unmount_iso(folder)
             
-        # 2. Agresif temizlik (hafızada olmayan ama klasörde bulunan tüm ISO'lar için)
         si = subprocess.STARTUPINFO()
         si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
         si.wShowWindow = subprocess.SW_HIDE
         ps_cmd = (
             f"$dirs = @('{WIM_DIR}', '{ISO_WIN_DIR}', '{ISO_LIN_DIR}'); "
             "foreach($d in $dirs) { if(Test-Path $d) { Get-ChildItem -Path $d -Recurse -Filter '*.iso' | ForEach-Object { "
-            "Dismount-DiskImage -ImagePath $_.FullName -ErrorAction SilentlyContinue | Out-Null "
+            "$iso = $_.FullName; "
+            "$di = Get-DiskImage -ImagePath $iso -EA SilentlyContinue; "
+            "if ($di -and $di.Attached -and ($null -ne $di.Number)) { "
+            "  $part = Get-Disk -Number $di.Number -EA SilentlyContinue | Get-Partition -EA SilentlyContinue | Sort-Object Size -Descending | Select-Object -First 1; "
+            "  if ($part) { "
+            "    $part.AccessPaths | Where-Object { $_ -match '\\mnt\\' } | ForEach-Object { Remove-PartitionAccessPath -DiskNumber $part.DiskNumber -PartitionNumber $part.PartitionNumber -AccessPath $_ -EA SilentlyContinue } "
+            "  }; "
+            "  Dismount-DiskImage -ImagePath $iso -EA SilentlyContinue | Out-Null "
+            "} "
             "} } }"
         )
         subprocess.run(['powershell', '-NoProfile', '-WindowStyle', 'Hidden', '-Command', ps_cmd], startupinfo=si, timeout=30)
@@ -2170,33 +2240,20 @@ def _unmount_all_isos():
     _defender_remove_all()
 
 def _reconcile_mounts():
-    """Her bilinen ISO yolunu Get-DiskImage -ImagePath ile teker teker sorgular.
-    Get-DiskImage (parametresiz) bazi Windows surumlerinde bos dondugundan
-    her yol ayri sorgulanir — daha guvenilir.
-    _iso_mounts'u gercek Windows durumundan bastan yazar."""
-    si = subprocess.STARTUPINFO()
-    si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-    si.wShowWindow = subprocess.SW_HIDE
-    # Tum bilinen ISO yollarini topla: folder_name -> iso_path
-    known = {}  # folder_name -> iso_path
+    """Her bilinen ISO'nun klasör mount durumunu kontrol edip _iso_mounts'a kaydeder."""
+    known = set()
     for base_dir in [WIM_DIR, ISO_WIN_DIR, ISO_LIN_DIR]:
         if not os.path.exists(base_dir): continue
         for entry in os.listdir(base_dir):
-            ep = os.path.join(base_dir, entry)
-            if not os.path.isdir(ep): continue
-            iso_path = _find_iso_path(entry)
-            if iso_path: known[entry] = iso_path
-    # Her yolu ayri sorgula: Get-DiskImage -ImagePath bos donmez
+            if os.path.isdir(os.path.join(base_dir, entry)) and _find_iso_path(entry):
+                known.add(entry)
     corrected = {}
-    for folder, iso_path in known.items():
+    for folder in known:
+        mnt_path = os.path.join(PXE_DIR, 'mnt', folder)
+        mnt_path_bs = mnt_path + '\\'
         try:
-            ps = (f"$d = Get-DiskImage -ImagePath '{iso_path}' -EA SilentlyContinue; "
-                  f"if ($d -and $d.Attached) {{ ($d | Get-Volume -EA SilentlyContinue).DriveLetter }} else {{ '' }}")
-            r = subprocess.run(['powershell', '-NoProfile', '-WindowStyle', 'Hidden', '-Command', ps],
-                capture_output=True, text=True, startupinfo=si, timeout=15)
-            drv = r.stdout.strip()
-            if drv and len(drv) == 1 and drv.isalpha():
-                corrected[folder] = drv
+            if os.path.isdir(mnt_path) and os.listdir(mnt_path):
+                corrected[folder] = mnt_path_bs
         except Exception:
             pass
     with _iso_mounts_lock:
@@ -2227,16 +2284,20 @@ def _auto_mount_existing():
         if failed:
             time.sleep(3)
             logs.append(f"Retrying failed mounts: {failed}")
+            still_failed = []
             for entry in failed:
                 drv = _ensure_iso_mounted(entry)
                 logs.append(f"Retry result for {entry}: {drv}")
-        # Basarisiz olanlar icin retry
+                if not drv:
+                    still_failed.append(entry)
+            failed = still_failed
+        # İkinci retry — kalıcı başarısızlar için son deneme
         if failed:
             time.sleep(3)
-            logs.append(f"Retrying: {failed}")
+            logs.append(f"Final retry: {failed}")
             for entry in list(failed):
                 drv = _ensure_iso_mounted(entry)
-                logs.append(f"Retry {entry}: {drv}")
+                logs.append(f"Final retry {entry}: {drv}")
         # Gercek Windows durumundan eslemeyi yeniden kur
         time.sleep(1)
         corrected = _reconcile_mounts()
@@ -2283,7 +2344,7 @@ def _webdav_handler(folder, inner=''):
     if not drv:
         return Response('ISO not found or could not be mounted', status=503)
     inner     = inner.strip('/').replace('/', os.sep)
-    full      = os.path.join(f"{drv}:\\", inner) if inner else f"{drv}:\\"
+    full      = os.path.join(drv, inner) if inner else drv
     is_dir    = os.path.isdir(full)
     if not os.path.exists(full): return Response('Not Found', status=404)
     if method == 'PROPFIND':
@@ -2611,7 +2672,7 @@ def upload_unattend():
             drv = _iso_mounts.get(name)
         if drv:
             try:
-                shutil.copy2(dest, os.path.join(f"{drv}:\\", 'unattend.xml'))
+                shutil.copy2(dest, os.path.join(drv, 'unattend.xml'))
             except Exception:
                 pass
         return jsonify({'success': True})
@@ -2688,7 +2749,7 @@ def delete_file():
 
         # Defender exclusion: önceden kaydedilen yollarla temizle
         if mounted_drv:
-            _defender_remove_exclude(f"{mounted_drv}:\\")
+            _defender_remove_exclude(mounted_drv)
         if iso_path_for_exclusion:
             _defender_remove_exclude(iso_path_for_exclusion)
 
@@ -2746,11 +2807,13 @@ def start_server():
 @app.route('/api/server/stop', methods=['POST'])
 @login_required
 def stop_server():
-    try:
+    def _do():
         internal_stop_pxe()
         _unmount_all_isos()
-        return jsonify({'success': True})
-    except: return jsonify({'success': False})
+        time.sleep(0.8)
+        os._exit(0)
+    threading.Thread(target=_do, daemon=True).start()
+    return jsonify({'success': True})
 
 @app.route('/api/app/shutdown', methods=['POST'])
 @login_required

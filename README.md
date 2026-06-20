@@ -16,6 +16,14 @@
 
 [![Stable?](https://img.shields.io/badge/Release-v1.svg?style=flat)](https://github.com/abdullah-erturk/iPXE-Manager/archive/refs/heads/main.zip)
 
+## 🎮 Live Demo / Canlı Demo
+
+[![Try the Live Demo](https://img.shields.io/badge/🎭_Live_Demo-Try_it_now-F59E0B?style=for-the-badge&labelColor=1F2937)](https://erturk-dev.netlify.app/ipxe_demo.html)
+
+*Bilgisayarınıza indirmeden yönetim panelini tarayıcı üzerinden deneyin — şifre: `admin` · Hiçbir dosya gerçekten yüklenmez, simülasyondur.*
+
+*Try accessing the control panel through your browser instead of downloading it to your computer — password: `admin` · No actual files are uploaded — it's a simulation.*
+
 # ⚡ iPXE Manager
 
 *Network boot management panel for WinPE, Windows and Linux ISO files over PXE*
@@ -31,6 +39,7 @@
 |--------|------------|
 | v1 | İlk Sürüm / First Release |
 | v1 fix | Eksik çeviri dil metinleri eklendi / Missing translated language texts have been added. |
+| v2 | **🇹🇷 Türkçe:**<br>• ISO mount yöntemi sürücü harfi (A–Z) yerine klasör tabanlı gizli mount noktasına geçirildi — ISO'lar artık `diskpart` ile `pxe/mnt/<klasör_adı>` altına bağlanıyor ve sürücü harfi tüketmiyor<br>• `WinSetup.cmd`, kök dizininde `setup.exe` bulunmayan modifiye/slipstream Windows ISO'larını da destekliyor (`sources\` içindeki `install.wim`/`install.esd`/`install.swm` otomatik tespit edilip WinPE'nin yerleşik `X:\setup.exe` programıyla `/installfrom:` parametresi kullanılıyor)<br>• Mount/unmount ve reconciliation mantığı diskpart tabanlı olacak şekilde yeniden yazılıp güvenilirliği artırıldı<br>• Sunucu durdurma (stop) işlemi artık arka planda asenkron çalışıyor<br><br>**🇬🇧 English:**<br>• ISO mount method switched from drive letters (A–Z) to folder-based hidden mount points — ISOs are now bound under `pxe/mnt/<folder_name>` via `diskpart` and no longer consume a drive letter<br>• `WinSetup.cmd` now also supports modified/slipstreamed Windows ISOs that don't have `setup.exe` in the root (auto-detects `install.wim`/`install.esd`/`install.swm` inside `sources\` and launches via WinPE's built-in `X:\setup.exe` with the `/installfrom:` parameter)<br>• Mount/unmount and reconciliation logic was rewritten around diskpart for improved reliability<br>• Server stop now runs asynchronously in the background |
 
 </details>
     
@@ -337,6 +346,7 @@ iPXE Manager/
     ├── ipxe-legacy.pxe         ← BIOS önyükleme dosyası
     ├── ipxe.efi                ← UEFI iPXE çalışma zamanı (iPXE imzalı)
     ├── app_settings.json       ← Uygulama ayarları (otomatik oluşturulur)
+    ├── mnt/                    ← Otomatik oluşturulan gizli mount klasörü; her mount edilen ISO için diskpart ile burada ayrı bir alt klasöre bağlanır (örn. mnt/<iso_klasör_adı>/)
     ├── ISO/
     │   ├── Windows/            ← Windows ISO klasörleri
     │   └── Linux/              ← Linux ISO klasörleri
@@ -371,9 +381,10 @@ iPXE Manager/
 
 - **Yalnızca Windows** — uygulama, `Mount-DiskImage` (PowerShell) ve diğer Windows'a özgü API'leri kullanır
 - **Windows ISO → WebClient (öncelikli) / RClone + WinFsp (yedek)** — Önce WinPE'nin yerel **WebClient** servisi başlatılarak doğrudan WebDAV UNC yolu (`\\SERVER@PORT\DavWWWRoot\dav\ISO_DIR`) üzerinden bağlantı denenir. WinPE'de WebClient mevcut değilse veya başarısız olursa `davinst.exe` **WinFsp** sürücüsünü yükler ve `rclone.exe` ISO içeriğini sanal sürücü olarak bağlar. Her iki yöntemde de Windows Setup, ISO dosyalarına yerel sürücüymüş gibi erişir; SMB paylaşımı veya ek kullanıcı hesabı gerekmez. **x86 ve x64 WinPE** otomatik desteklenir (mimari otomatik tespit edilir, ilgili ikili dosyalar enjekte edilir)
+- **Modifiye Windows ISO desteği** — `WinSetup.cmd`, ISO kök dizininde `setup.exe` bulunmayan modifiye/slipstream Windows ISO'larını da destekler. Kök dizinde `setup.exe` yoksa `sources\` klasöründeki `install.wim` / `install.esd` / `install.swm` dosyası otomatik tespit edilir ve kurulum, WinPE'nin yerleşik `X:\setup.exe` programı ile `/installfrom:` parametresi kullanılarak başlatılır
 - **Yönetici yetkisi gerekli** — ISO mount, `wimlib-imagex` ile boot.wim düzenleme ve servis yönetimi yükseltilmiş ayrıcalıklar gerektirir
-- **ISO dosyaları kalıcı olarak mount edilmiş kalır** — Modifiye WinPE, Windows Setup ve Linux ISO dosyaları, sunucu çalıştığı sürece Windows tarafından sanal sürücü olarak mount edilmiş halde tutulur. Bunun nedeni; istemci her dosyaya (squashfs, boot.wim, kernel vb.) eriştiğinde sunucunun ISO içeriğini anlık olarak HTTP veya WebDAV üzerinden okuyup servis etmesidir. ISO unmount edilirse istemci bağlantısı kesilir ve önyükleme başarısız olur. Uygulama kapatıldığında tüm mount işlemleri otomatik olarak sonlandırılır; yeniden açıldığında ise mevcut ISO dosyaları otomatik olarak tekrar mount edilir.
-- **Sürücü harfleri** — her mount edilen ISO bir Windows sürücü harfi (A–Z) tüketir; tipik kullanımda pratik bir sorun değildir
+- **ISO dosyaları kalıcı olarak mount edilmiş kalır** — Modifiye WinPE, Windows Setup ve Linux ISO dosyaları, sunucu çalıştığı sürece Windows tarafından `pxe\mnt\` altındaki gizli klasör mount noktalarına bağlı halde tutulur. Bunun nedeni; istemci her dosyaya (squashfs, boot.wim, kernel vb.) eriştiğinde sunucunun ISO içeriğini anlık olarak HTTP veya WebDAV üzerinden okuyup servis etmesidir. ISO unmount edilirse istemci bağlantısı kesilir ve önyükleme başarısız olur. Uygulama kapatıldığında tüm mount işlemleri otomatik olarak sonlandırılır; yeniden açıldığında ise mevcut ISO dosyaları otomatik olarak tekrar mount edilir.
+- **Gizli klasör mount sistemi** — ISO dosyaları artık Windows sürücü harfi (A–Z) tüketmez; her mount edilen ISO, `diskpart` kullanılarak `pxe\mnt\<klasör_adı>` altında oluşturulan gizli bir NTFS mount noktasına bağlanır. Bu sayede aynı anda onlarca ISO mount edilse bile sürücü harfi sınırına takılma riski ortadan kalkmıştır
 - **Linux RAM gereksinimleri** — Linux destek tablosuna bakın; Ubuntu 24.04+ önemli miktarda RAM gerektirir
 - **Linux için Secure Boot yok** — Linux PXE önyüklemesi için Secure Boot devre dışı bırakılmalıdır; Windows önyüklemesi imzalı iPXE EFI ile Secure Boot etkin çalışır
 - **Ticari destek yok** — bu proje kişisel işyeri kullanımı için geliştirilmiştir; sorunlar bildirilebilir ancak yanıt garanti edilmez
@@ -652,6 +663,7 @@ iPXE Manager/
     ├── ipxe-legacy.pxe         ← BIOS boot file
     ├── ipxe.efi                ← UEFI iPXE runtime (iPXE signed)
     ├── app_settings.json       ← Application settings (auto-generated)
+    ├── mnt/                    ← Auto-created hidden mount folder; each mounted ISO is bound here in its own subfolder via diskpart (e.g. mnt/<iso_folder_name>/)
     ├── ISO/
     │   ├── Windows/            ← Windows ISO folders
     │   └── Linux/              ← Linux ISO folders
@@ -686,9 +698,10 @@ iPXE Manager/
 
 - **Windows only** — the application uses `Mount-DiskImage` (PowerShell) and other Windows-specific APIs
 - **Windows ISO → WebClient (preferred) / RClone + WinFsp (fallback)** — WinPE's native **WebClient** service is started first and the WebDAV UNC path (`\\SERVER@PORT\DavWWWRoot\dav\ISO_DIR`) is mounted directly. If WebClient is unavailable or fails, `davinst.exe` loads the **WinFsp** virtual filesystem driver and `rclone.exe` exposes the WebDAV share as a local drive letter. Either way, Windows Setup accesses the installation files as if from a local drive; no SMB share or extra user account is required. **Both x86 and x64 WinPE** are auto-supported (architecture is detected and the corresponding binaries are injected)
+- **Modified Windows ISO support** — `WinSetup.cmd` now also supports modified/slipstreamed Windows ISOs that don't have `setup.exe` in the ISO root. If `setup.exe` is missing from the root, it automatically detects `install.wim` / `install.esd` / `install.swm` inside the `sources\` folder and launches the installation using WinPE's built-in `X:\setup.exe` with the `/installfrom:` parameter
 - **Administrator required** — ISO mounting, `wimlib-imagex` boot.wim patching, and service management need elevated privileges
-- **ISOs remain permanently mounted** — Modified WinPE, Windows Setup, and Linux ISO files are kept mounted as virtual drives by Windows for as long as the server is running. This is required because every time a client requests a file (squashfs, boot.wim, kernel, etc.), the server reads directly from the mounted ISO and serves it instantly over HTTP or WebDAV. If an ISO were unmounted while a client is booting, the connection would be lost and the boot would fail. All ISOs are automatically unmounted when the application is closed and automatically remounted when it is reopened.
-- **Drive letters** — each mounted ISO consumes a Windows drive letter (A–Z limit); practically not an issue for typical deployments
+- **ISOs remain permanently mounted** — Modified WinPE, Windows Setup, and Linux ISO files are kept bound to hidden folder mount points under `pxe\mnt\` by Windows for as long as the server is running. This is required because every time a client requests a file (squashfs, boot.wim, kernel, etc.), the server reads directly from the mounted ISO and serves it instantly over HTTP or WebDAV. If an ISO were unmounted while a client is booting, the connection would be lost and the boot would fail. All ISOs are automatically unmounted when the application is closed and automatically remounted when it is reopened.
+- **Hidden folder mount system** — ISO files no longer consume a Windows drive letter (A–Z); each mounted ISO is bound via `diskpart` to a hidden NTFS mount point created under `pxe\mnt\<folder_name>`. This removes any risk of running out of drive letters even with dozens of ISOs mounted at the same time
 - **Linux RAM requirements** — see the Linux support table; Ubuntu 24.04+ requires significant RAM
 - **No Secure Boot for Linux** — Linux PXE boot requires Secure Boot disabled; Windows boot works with Secure Boot enabled (signed iPXE EFI)
 - **No commercial support** — this project was built for personal workplace use; issues are welcome but responses are not guaranteed
