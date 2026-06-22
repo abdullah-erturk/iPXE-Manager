@@ -90,11 +90,13 @@ Special thanks to **Tayfın AKKOYUN** for his support.
 <em>WinPE ISO and WIM Integration and Installation via iPXE</em>
 </a>
 </td>
+</tr>
 
-<td align="center" width="50%">
+<tr>
+<td align="center" colspan="2">
 <a href="https://www.youtube.com/watch?v=ugg1j0AlKlY">
-<img src="https://img.youtube.com/vi/D7PtqnsExrQ/maxresdefault.jpg" alt="WinPE ISO ve WIM Entegrasyonu" width="100%">
-<br><strong>4. IPXE v2 Yenilikler</strong><br>
+<img src="https://img.youtube.com/vi/ugg1j0AlKlY/maxresdefault.jpg" alt="IPXE v2 Yenilikler" width="50%">
+<br><strong>5. IPXE v2 Yenilikler</strong><br>
 <em>IPXE v2 New Features</em>
 </a>
 </td>
