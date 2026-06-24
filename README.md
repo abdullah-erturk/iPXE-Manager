@@ -54,7 +54,7 @@
 <br>
 The voiceover is in Turkish. English subtitles can be enabled on YouTube.
 
-Special thanks to **Tayfın AKKOYUN** for his support.
+Special thanks to **Tayfun AKKOYUN** for his support.
 
 <table>
 <tr>
