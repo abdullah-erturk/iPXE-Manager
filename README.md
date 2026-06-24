@@ -24,7 +24,7 @@
 
 *Try accessing the control panel through your browser instead of downloading it to your computer — password: `admin` · No actual files are uploaded — it's a simulation.*
 
-# ⚡ iPXE Manager v2
+# ⚡ iPXE Manager v2.1
 
 *Network boot management panel for WinPE, Windows and Linux ISO files over PXE*
 
