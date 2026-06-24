@@ -40,6 +40,7 @@
 | v1 | İlk Sürüm / First Release |
 | v1 fix | Eksik çeviri dil metinleri eklendi / Missing translated language texts have been added. |
 | v2 | **🇹🇷 Türkçe:**<br>• ISO mount yöntemi sürücü harfi (A–Z) yerine klasör tabanlı gizli mount noktasına geçirildi — ISO'lar artık `diskpart` ile `pxe/mnt/<klasör_adı>` altına bağlanıyor ve sürücü harfi tüketmiyor<br>• `WinSetup.cmd`, kök dizininde `setup.exe` bulunmayan modifiye/slipstream Windows ISO'larını da destekliyor (`sources\` içindeki `install.wim`/`install.esd`/`install.swm` otomatik tespit edilip WinPE'nin yerleşik `X:\setup.exe` programıyla `/installfrom:` parametresi kullanılıyor)<br>• Mount/unmount ve reconciliation mantığı diskpart tabanlı olacak şekilde yeniden yazılıp güvenilirliği artırıldı<br>• Sunucu durdurma (stop) işlemi artık arka planda asenkron çalışıyor<br><br>**🇬🇧 English:**<br>• ISO mount method switched from drive letters (A–Z) to folder-based hidden mount points — ISOs are now bound under `pxe/mnt/<folder_name>` via `diskpart` and no longer consume a drive letter<br>• `WinSetup.cmd` now also supports modified/slipstreamed Windows ISOs that don't have `setup.exe` in the root (auto-detects `install.wim`/`install.esd`/`install.swm` inside `sources\` and launches via WinPE's built-in `X:\setup.exe` with the `/installfrom:` parameter)<br>• Mount/unmount and reconciliation logic was rewritten around diskpart for improved reliability<br>• Server stop now runs asynchronously in the background |
+| v2.1 | **🇹🇷 Türkçe:**<br>Bu güncelleme özellikle **modifiye WinPE ISO'larının** (Sergei Strelec vb.) mount edilirken yaşadığı sorunları gidermek için yapılmıştır. Söz konusu ISO'lar standart yapıdan farklı bir volume düzeni sunduğundan önceki `Get-DiskImage` tabanlı yöntem güvenilir çalışmıyordu.<br>• ISO mount öncesinde mevcut `mnt_temp` klasörü varsa silinip yeniden oluşturuluyor — eski/bozuk mount noktasından kaynaklanan sorunlar önleniyor<br>• ISO mount yöntemi `Get-DiskImage` / `Add-PartitionAccessPath` tabanlı yaklaşımdan tamamen `diskpart` tabanlı yönteme geçirildi — mount öncesi ve sonrası volume listesi `diskpart list volume` ile karşılaştırılarak drive letter'sız UDF/DVD-ROM volume tespit ediliyor ve `diskpart assign mount=` komutuyla klasöre bağlanıyor<br>• Mount bekleme süresi 1000ms'den 2000ms'ye yükseltildi — yavaş sistemlerde mount işleminin tamamlanması için ek süre tanınıyor<br>• `_unmount_all_isos()` fonksiyonundaki ek PowerShell sweep kodu kaldırıldı — `_unmount_iso()` fonksiyonu zaten her ISO'yu ayrı ayrı doğru şekilde unmount ettiğinden gereksiz hale gelmişti<br><br>**🇬🇧 English:**<br>This update primarily addresses ISO mount issues with **modified WinPE ISOs** (e.g. Sergei Strelec). Such ISOs expose a non-standard volume layout that caused the previous `Get-DiskImage`-based method to fail unreliably.<br>• Existing `mnt_temp` folder is now deleted and recreated before ISO mount — prevents issues caused by stale or broken mount points<br>• ISO mount method fully migrated from `Get-DiskImage` / `Add-PartitionAccessPath` to a pure `diskpart`-based approach — volume list is captured before and after mount via `diskpart list volume`, the new drive-letter-free UDF/DVD-ROM volume is identified, and bound to the folder using `diskpart assign mount=`<br>• Mount wait time increased from 1000ms to 2000ms — gives additional time for mount to complete on slower systems<br>• Removed the redundant PowerShell sweep block from `_unmount_all_isos()` — it was no longer needed since `_unmount_iso()` already handles each ISO correctly on its own |
 
 </details>
     
@@ -88,6 +89,16 @@ Special thanks to **Tayfın AKKOYUN** for his support.
 <img src="https://img.youtube.com/vi/D7PtqnsExrQ/maxresdefault.jpg" alt="WinPE ISO ve WIM Entegrasyonu" width="100%">
 <br><strong>4. iPXE ile WinPE ISO ve WIM Entegrasyonu ve Kurulumu</strong><br>
 <em>WinPE ISO and WIM Integration and Installation via iPXE</em>
+</a>
+</td>
+</tr>
+
+<tr>
+<td align="center" colspan="2">
+<a href="https://www.youtube.com/watch?v=ugg1j0AlKlY">
+<img src="https://img.youtube.com/vi/ugg1j0AlKlY/maxresdefault.jpg" alt="IPXE v2 Yenilikler" width="50%">
+<br><strong>5. IPXE v2 Yenilikler</strong><br>
+<em>IPXE v2 New Features</em>
 </a>
 </td>
 </tr>

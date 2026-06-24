@@ -305,18 +305,69 @@ Log "Target : $DestDir"
 try {
     Log "[1/4] Mounting ISO to Temporary Folder..."
     $mnt = Join-Path $DestDir "mnt_temp"
-    if (-not (Test-Path $mnt)) { New-Item -ItemType Directory -Force -Path $mnt | Out-Null }
+    if (Test-Path $mnt) { Remove-Item -Path $mnt -Recurse -Force -EA SilentlyContinue }
+    New-Item -ItemType Directory -Force -Path $mnt | Out-Null
+
+    # Mount oncesi volume listesi
+    $volsBefore = @(& diskpart /s ([System.IO.Path]::GetTempFileName() | % { "list volume" | Set-Content $_; $_ }) 2>$null)
+    $beforeNums = @()
+    $tempFile = [System.IO.Path]::GetTempFileName()
+    "list volume" | Set-Content $tempFile
+    $dpBefore = & diskpart /s $tempFile 2>&1 | Out-String
+    Remove-Item $tempFile -EA SilentlyContinue
+
+    # ISO'yu mount et
     Mount-DiskImage -ImagePath $IsoPath -NoDriveLetter -ErrorAction SilentlyContinue | Out-Null
-    Start-Sleep -Milliseconds 1000
-    $di = Get-DiskImage -ImagePath $IsoPath -ErrorAction SilentlyContinue
-    $part = $null
-    if ($di -and $di.Attached -and ($null -ne $di.Number)) {
-        $part = Get-Disk -Number $di.Number -EA SilentlyContinue | Get-Partition -EA SilentlyContinue | Sort-Object Size -Descending | Select-Object -First 1
+    Start-Sleep -Milliseconds 2000
+
+    # Mount sonrasi volume listesi — drive letter'siz UDF/DVD-ROM bul
+    $tempFile2 = [System.IO.Path]::GetTempFileName()
+    "list volume" | Set-Content $tempFile2
+    $dpAfter = & diskpart /s $tempFile2 2>&1 | Out-String
+    Remove-Item $tempFile2 -EA SilentlyContinue
+
+    # Zaten mount point atanmamis UDF/DVD-ROM volume'u bul
+    $volNum = $null
+    $lines = $dpAfter -split "`r?`n"
+    $mountedVols = @{}
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        if ($lines[$i] -match '^\s+Volume\s+(\d+)') {
+            $num = $Matches[1]
+            if ($i+1 -lt $lines.Count) {
+                $next = $lines[$i+1].Trim()
+                if ($next -match '^\\' -or ($next.Length -gt 2 -and $next[1] -eq ':')) {
+                    $mountedVols[$num] = $true
+                }
+            }
+        }
     }
-    if ($part) {
-        Add-PartitionAccessPath -DiskNumber $part.DiskNumber -PartitionNumber $part.PartitionNumber -AccessPath "$mnt\" -ErrorAction SilentlyContinue
-    } else {
-        Log "[ERROR] Failed to get partition for ISO mount."
+    foreach ($line in $lines) {
+        if ($line -match '^\s+Volume\s+(\d+)') {
+            $num = $Matches[1]
+            if ($mountedVols.ContainsKey($num)) { continue }
+            if ($line -match 'No Media') { continue }
+            if ($line -notmatch 'UDF|DVD-ROM') { continue }
+            $ltr = $line.Substring([Math]::Min(15,$line.Length), [Math]::Min(3,$line.Length-15)).Trim()
+            if ($ltr.Length -eq 1 -and [char]::IsLetter($ltr[0])) { continue }
+            $volNum = $num
+            break
+        }
+    }
+
+    if (-not $volNum) {
+        Log "[ERROR] Failed to identify ISO volume in diskpart output."
+        exit 1
+    }
+
+    # diskpart assign mount=
+    $tempFile3 = [System.IO.Path]::GetTempFileName()
+    "select volume $volNum`r`nassign mount=`"$mnt`"" | Set-Content $tempFile3
+    & diskpart /s $tempFile3 2>&1 | Out-Null
+    Remove-Item $tempFile3 -EA SilentlyContinue
+    Start-Sleep -Milliseconds 500
+
+    if (-not (Get-ChildItem -Path $mnt -EA SilentlyContinue)) {
+        Log "[ERROR] Mount folder is empty after diskpart assign."
         exit 1
     }
     $drive = "$mnt\"
@@ -2217,24 +2268,6 @@ def _unmount_all_isos():
         for folder in folders:
             _unmount_iso(folder)
             
-        si = subprocess.STARTUPINFO()
-        si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-        si.wShowWindow = subprocess.SW_HIDE
-        ps_cmd = (
-            f"$dirs = @('{WIM_DIR}', '{ISO_WIN_DIR}', '{ISO_LIN_DIR}'); "
-            "foreach($d in $dirs) { if(Test-Path $d) { Get-ChildItem -Path $d -Recurse -Filter '*.iso' | ForEach-Object { "
-            "$iso = $_.FullName; "
-            "$di = Get-DiskImage -ImagePath $iso -EA SilentlyContinue; "
-            "if ($di -and $di.Attached -and ($null -ne $di.Number)) { "
-            "  $part = Get-Disk -Number $di.Number -EA SilentlyContinue | Get-Partition -EA SilentlyContinue | Sort-Object Size -Descending | Select-Object -First 1; "
-            "  if ($part) { "
-            "    $part.AccessPaths | Where-Object { $_ -match '\\mnt\\' } | ForEach-Object { Remove-PartitionAccessPath -DiskNumber $part.DiskNumber -PartitionNumber $part.PartitionNumber -AccessPath $_ -EA SilentlyContinue } "
-            "  }; "
-            "  Dismount-DiskImage -ImagePath $iso -EA SilentlyContinue | Out-Null "
-            "} "
-            "} } }"
-        )
-        subprocess.run(['powershell', '-NoProfile', '-WindowStyle', 'Hidden', '-Command', ps_cmd], startupinfo=si, timeout=30)
     except Exception:
         pass
     _defender_remove_all()
