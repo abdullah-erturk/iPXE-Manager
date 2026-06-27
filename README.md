@@ -8,7 +8,7 @@
 <img src="https://img.shields.io/badge/iPXE-Network%20Boot-E85D27?style=for-the-badge"/>
 <a href="LICENSE"><img src="https://img.shields.io/badge/License-Custom%20%7C%20See%20LICENSE-green?style=for-the-badge"/></a>
 
-![sample](https://github.com/abdullah-erturk/iPXE-Manager/blob/main/preview.jpg)
+![sample](https://github.com/abdullah-erturk/iPXE-Manager/blob/main/preview.jpg) 
 
 ![sample](https://github.com/abdullah-erturk/iPXE-Manager/blob/main/adminpanel.jpg)
 
