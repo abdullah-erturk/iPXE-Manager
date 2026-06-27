@@ -59,11 +59,82 @@ function Log { param([string]$m, [string]$c = "Gray") Write-Host $m -ForegroundC
 
 # --- Distro detection by ISO structure (not filename) ---
 function Get-DistroType { param([string]$Drive)
+    # --- Ubuntu tabanlı (önce özel araçları kontrol et) ---
+    if (Test-Path "$Drive\casper") {
+        # .disk/info dosyası
+        if (Test-Path "$Drive\.disk\info") {
+            $info = Get-Content "$Drive\.disk\info" -ErrorAction SilentlyContinue
+            if ($info -match "Rescuezilla") { return "rescuezilla" }
+            if ($info -match "Clonezilla")  { return "clonezilla" }
+        }
+        # isolinux/txt.cfg
+        $isolinuxCfg = Get-Content "$Drive\isolinux\txt.cfg" -ErrorAction SilentlyContinue -Raw
+        if ($isolinuxCfg -match "rescuezilla") { return "rescuezilla" }
+        if ($isolinuxCfg -match "clonezilla")  { return "clonezilla" }
+        # grub.cfg içinde rescuezilla/clonezilla işareti
+        foreach ($grubPath in @("boot\grub\grub.cfg","boot\grub2\grub.cfg","EFI\boot\grub.cfg","EFI\BOOT\grub.cfg")) {
+            $gc = Get-Content "$Drive\$grubPath" -ErrorAction SilentlyContinue -Raw
+            if ($gc -match "rescuezilla") { return "rescuezilla" }
+            if ($gc -match "clonezilla")  { return "clonezilla" }
+        }
+        # casper klasöründe squashfs adı rescuezilla içeriyor mu?
+        $sqfs = Get-ChildItem "$Drive\casper" -Filter "*.squashfs" -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($sqfs -and $sqfs.Name -match "rescuezilla") { return "rescuezilla" }
+        # casper/filesystem.manifest içinde rescuezilla var mı?
+        $manifest = Get-Content "$Drive\casper\filesystem.manifest" -ErrorAction SilentlyContinue -Raw
+        if ($manifest -match "rescuezilla") { return "rescuezilla" }
+        # casper/vmlinuz var ama .disk/info yok → rescuezilla olabilir, iso adı kontrolü için generic bırak
+        # eğer burada hiçbir eşleşme yoksa ubuntu'ya düş
+    }
     if (Test-Path "$Drive\casper\filesystem.squashfs") { return "ubuntu" }
     if (Test-Path "$Drive\casper\filesystem.manifest") { return "ubuntu" }
     if (Test-Path "$Drive\casper") { return "ubuntu" }
-    if (Test-Path "$Drive\live\filesystem.squashfs")   { return "debian" }
+
+    # --- Redo Rescue (kök dizinde VMLINUZ, INITRD, LIVE/FILESYSTEM.SQUASHFS) ---
+    if ((Test-Path "$Drive\VMLINUZ") -or (Test-Path "$Drive\vmlinuz")) {
+        if ((Test-Path "$Drive\LIVE") -or (Test-Path "$Drive\live")) {
+            return "redorescue"
+        }
+    }
+
+    # --- Bakım araçları (live/ dizini kullananlar — debian tabanlı ama ozel parametreler) ---
+    if (Test-Path "$Drive\live\filesystem.squashfs") {
+        # ISO etiketine veya karakteristik dosyalara gore tespitle
+        $isoLabel = (Get-Volume -ErrorAction SilentlyContinue | Where-Object { $_.DriveLetter -and (Test-Path ($_.DriveLetter + ":\live\filesystem.squashfs")) } | Select-Object -First 1 -ExpandProperty FileSystemLabel) + ""
+        if (Test-Path "$Drive\live\Clonezilla") { return "clonezilla" }
+        if (Test-Path "$Drive\live\clonezilla") { return "clonezilla" }
+        if (Test-Path "$Drive\live\Clonezilla-Live-Version") { return "clonezilla" }
+        if (Test-Path "$Drive\live\GParted-Live-Version") { return "gparted" }
+        if (Test-Path "$Drive\.disk\info") {
+            $info = Get-Content "$Drive\.disk\info" -ErrorAction SilentlyContinue
+            if ($info -match "Clonezilla") { return "clonezilla" }
+            if ($info -match "GParted")    { return "gparted" }
+            if ($info -match "Rescuezilla") { return "rescuezilla" }
+        }
+        if (Test-Path "$Drive\live\config\includes.binary\etc\os-release") {
+            $osrel = Get-Content "$Drive\live\config\includes.binary\etc\os-release" -ErrorAction SilentlyContinue -Raw
+            if ($osrel -match "clonezilla") { return "clonezilla" }
+            if ($osrel -match "gparted")    { return "gparted" }
+        }
+        # isolinux/txt.cfg icerigine bak
+        $txtcfg = Get-Content "$Drive\isolinux\txt.cfg" -ErrorAction SilentlyContinue -Raw
+        if ($txtcfg -match "clonezilla") { return "clonezilla" }
+        if ($txtcfg -match "gparted")    { return "gparted" }
+        if ($txtcfg -match "rescuezilla") { return "rescuezilla" }
+        # Genel debian/live
+        return "debian"
+    }
     if (Test-Path "$Drive\live\filesystem.squashfs.part") { return "debian" }
+
+    # --- SystemRescue (Arch tabanlı, ozel dizin yapisi) ---
+    if (Test-Path "$Drive\sysresccd\boot\x86_64\vmlinuz") { return "sysrescue" }
+    if (Test-Path "$Drive\sysresccd") { return "sysrescue" }
+
+    # --- PartedMagic (ozel yapı, netsrc=wget kullanır) ---
+    if (Test-Path "$Drive\pmagic\pmodules") { return "partedmagic" }
+    if (Test-Path "$Drive\pmagic\bzImage")  { return "partedmagic" }
+
+    # --- Diger distro'lar ---
     if (Test-Path "$Drive\LiveOS\squashfs.img") {
         if (Test-Path "$Drive\boot\x86_64") { return "fedora" }
         return "rhel"
@@ -86,18 +157,25 @@ function Get-DistroType { param([string]$Drive)
 # --- Per-distro kernel/initrd paths ---
 function Get-KernelPath { param([string]$Drive, [string]$Distro)
     $map = @{
-        "ubuntu"   = @("casper\vmlinuz", "casper\vmlinuz.efi")
-        "debian"   = @("live\vmlinuz", "install.amd\vmlinuz", "live\vmlinuz.efi")
-        "fedora"   = @("images\pxeboot\vmlinuz", "boot\x86_64\vmlinuz")
-        "rhel"     = @("images\pxeboot\vmlinuz", "boot\vmlinuz")
-        "opensuse" = @("boot\x86_64\loader\linux", "boot\x86_64\linux")
-        "arch"     = @("arch\boot\x86_64\vmlinuz-linux", "arch\boot\x86_64\vmlinuz")
-        "manjaro"  = @("boot\vmlinuz", "manjaro\boot\x86_64\vmlinuz")
-        "alpine"   = @("boot\vmlinuz-lts", "boot\vmlinuz")
-        "void"     = @("boot\vmlinuz")
-        "nixos"    = @("boot\bzImage")
-        "generic"  = @("isolinux\vmlinuz", "syslinux\vmlinuz", "boot\vmlinuz",
-                       "casper\vmlinuz", "live\vmlinuz", "images\pxeboot\vmlinuz")
+        "ubuntu"      = @("casper\vmlinuz", "casper\vmlinuz.efi")
+        "debian"      = @("live\vmlinuz", "install.amd\vmlinuz", "live\vmlinuz.efi")
+        "clonezilla"  = @("live\vmlinuz", "live\vmlinuz.efi")
+        "gparted"     = @("live\vmlinuz", "live\vmlinuz.efi")
+        "rescuezilla" = @("casper\vmlinuz", "live\vmlinuz")
+        "redorescue"  = @("vmlinuz", "VMLINUZ")
+        "sysrescue"   = @("sysresccd\boot\x86_64\vmlinuz")
+        "partedmagic" = @("pmagic\bzImage")
+        "fedora"      = @("images\pxeboot\vmlinuz", "boot\x86_64\vmlinuz")
+        "rhel"        = @("images\pxeboot\vmlinuz", "boot\vmlinuz")
+        "opensuse"    = @("boot\x86_64\loader\linux", "boot\x86_64\linux")
+        "arch"        = @("arch\boot\x86_64\vmlinuz-linux", "arch\boot\x86_64\vmlinuz")
+        "manjaro"     = @("boot\vmlinuz", "manjaro\boot\x86_64\vmlinuz")
+        "alpine"      = @("boot\vmlinuz-lts", "boot\vmlinuz")
+        "void"        = @("boot\vmlinuz")
+        "nixos"       = @("boot\bzImage")
+        "generic"     = @("vmlinuz", "VMLINUZ", "isolinux\vmlinuz", "syslinux\vmlinuz",
+                         "boot\vmlinuz", "casper\vmlinuz", "live\vmlinuz",
+                         "images\pxeboot\vmlinuz")
     }
     $paths = $map[$Distro]
     if (-not $paths) { $paths = $map["generic"] }
@@ -112,18 +190,25 @@ function Get-KernelPath { param([string]$Drive, [string]$Distro)
 
 function Get-InitrdPath { param([string]$Drive, [string]$Distro)
     $map = @{
-        "ubuntu"   = @("casper\initrd", "casper\initrd.lz", "casper\initrd.gz")
-        "debian"   = @("live\initrd.img", "live\initrd.gz", "install.amd\initrd.gz")
-        "fedora"   = @("images\pxeboot\initrd.img", "boot\x86_64\initrd")
-        "rhel"     = @("images\pxeboot\initrd.img", "boot\initrd.img")
-        "opensuse" = @("boot\x86_64\loader\initrd")
-        "arch"     = @("arch\boot\x86_64\initramfs-linux.img", "arch\boot\x86_64\initramfs.img")
-        "manjaro"  = @("boot\initramfs.img", "manjaro\boot\x86_64\initramfs.img")
-        "alpine"   = @("boot\initramfs-lts", "boot\initramfs")
-        "void"     = @("boot\initrd")
-        "nixos"    = @("boot\initrd")
-        "generic"  = @("isolinux\initrd.img", "syslinux\initrd.img", "boot\initrd.img",
-                       "casper\initrd", "live\initrd.img", "images\pxeboot\initrd.img")
+        "ubuntu"      = @("casper\initrd", "casper\initrd.lz", "casper\initrd.gz")
+        "debian"      = @("live\initrd.img", "live\initrd.gz", "install.amd\initrd.gz")
+        "clonezilla"  = @("live\initrd.img", "live\initrd.gz")
+        "gparted"     = @("live\initrd.img", "live\initrd.gz")
+        "rescuezilla" = @("casper\initrd.lz", "casper\initrd", "casper\initrd.gz", "live\initrd.img")
+        "redorescue"  = @("initrd", "INITRD", "initrd.img", "INITRD.IMG")
+        "sysrescue"   = @("sysresccd\boot\x86_64\sysresccd.img")
+        "partedmagic" = @("pmagic\initrd.img")
+        "fedora"      = @("images\pxeboot\initrd.img", "boot\x86_64\initrd")
+        "rhel"        = @("images\pxeboot\initrd.img", "boot\initrd.img")
+        "opensuse"    = @("boot\x86_64\loader\initrd")
+        "arch"        = @("arch\boot\x86_64\initramfs-linux.img", "arch\boot\x86_64\initramfs.img")
+        "manjaro"     = @("boot\initramfs.img", "manjaro\boot\x86_64\initramfs.img")
+        "alpine"      = @("boot\initramfs-lts", "boot\initramfs")
+        "void"        = @("boot\initrd")
+        "nixos"       = @("boot\initrd")
+        "generic"     = @("initrd", "INITRD", "isolinux\initrd.img", "syslinux\initrd.img",
+                         "boot\initrd.img", "casper\initrd", "live\initrd.img",
+                         "images\pxeboot\initrd.img")
     }
     $paths = $map[$Distro]
     if (-not $paths) { $paths = $map["generic"] }
@@ -148,16 +233,25 @@ function Find-Squashfs { param([string]$Drive, [string]$Distro)
         if ($allSqfs -and $allSqfs.Count -eq 1) { return $allSqfs[0] }
         return $null
     }
+    # PartedMagic: squashfs yok, pmodules klasoru HTTP ile serve edilir
+    if ($Distro -eq "partedmagic") { return $null }
+    # SystemRescue: squashfs yok, sysresccd klasoru HTTP ile serve edilir
+    if ($Distro -eq "sysrescue")   { return $null }
+
     $candidates = switch ($Distro) {
-        "debian"   { @("live") }
-        "fedora"   { @("LiveOS","images") }
-        "rhel"     { @("LiveOS","images") }
-        "opensuse" { @("LiveOS") }
-        "void"     { @("LiveOS") }
-        "nixos"    { @("nix-store","boot") }
-        "arch"     { @("arch","x86_64") }
-        "manjaro"  { @("manjaro","x86_64") }
-        default    { @("LiveOS","casper","live") }
+        "debian"      { @("live") }
+        "clonezilla"  { @("live") }
+        "gparted"     { @("live") }
+        "rescuezilla" { @("casper","live") }
+        "redorescue"  { @("live", "LIVE") }
+        "fedora"      { @("LiveOS","images") }
+        "rhel"        { @("LiveOS","images") }
+        "opensuse"    { @("LiveOS") }
+        "void"        { @("LiveOS") }
+        "nixos"       { @("nix-store","boot") }
+        "arch"        { @("arch","x86_64") }
+        "manjaro"     { @("manjaro","x86_64") }
+        default       { @("LiveOS","casper","live","LIVE") }
     }
     foreach ($dir in $candidates) {
         $dirPath = Join-Path $Drive $dir
@@ -1472,15 +1566,35 @@ def generate_ipxe_script(domain=None):
                             distro_type = raw.decode('utf-8', errors='ignore').strip().lower()
                     except: pass
                 lower_name = (iso_folder + iso_file).lower()
+                # distro_hint "debian" veya "ubuntu" gelse bile klasor adinda bakım araci varsa override et
+                if distro_type in ("debian", "ubuntu", "generic"):
+                    if 'clonezilla' in lower_name: distro_type = "clonezilla"
+                    elif 'gparted' in lower_name: distro_type = "gparted"
+                    elif 'rescuezilla' in lower_name: distro_type = "rescuezilla"
+                    elif 'redorescue' in lower_name or 'redo-rescue' in lower_name: distro_type = "redorescue"
                 if distro_type == "generic":
                     if any(k in lower_name for k in ['ubuntu','mint','pop','zorin','elementary']): distro_type = "ubuntu"
                     elif any(k in lower_name for k in ['debian','kali','mx','parrot']): distro_type = "debian"
+                    elif 'clonezilla' in lower_name: distro_type = "clonezilla"
+                    elif 'gparted' in lower_name: distro_type = "gparted"
+                    elif 'rescuezilla' in lower_name: distro_type = "rescuezilla"
+                    elif 'redorescue' in lower_name or 'redo-rescue' in lower_name: distro_type = "redorescue"
+                    elif any(k in lower_name for k in ['systemrescue','sysrescue']): distro_type = "sysrescue"
+                    elif any(k in lower_name for k in ['partedmagic','pmagic']): distro_type = "partedmagic"
                     elif any(k in lower_name for k in ['fedora']): distro_type = "fedora"
                     elif any(k in lower_name for k in ['rocky','alma','centos','rhel']): distro_type = "rhel"
                     elif any(k in lower_name for k in ['opensuse','suse']): distro_type = "opensuse"
                     elif any(k in lower_name for k in ['arch','endeavour']): distro_type = "arch"
                     elif 'manjaro' in lower_name: distro_type = "manjaro"
                     elif 'alpine' in lower_name: distro_type = "alpine"
+
+                # distro_hint "ubuntu" gelse bile klasör/dosya adına göre override et
+                # (rescuezilla, clonezilla gibi ubuntu tabanlı ama farklı boot gerektiren distroları yakala)
+                if distro_type == "ubuntu":
+                    if 'rescuezilla' in lower_name:    distro_type = "rescuezilla"
+                    elif 'clonezilla' in lower_name:   distro_type = "clonezilla"
+                    elif 'gparted' in lower_name:      distro_type = "gparted"
+                    elif 'redorescue' in lower_name or 'redo-rescue' in lower_name: distro_type = "redorescue"
 
                 # Boot argümanları
                 if distro_type == "ubuntu":
@@ -1494,6 +1608,28 @@ def generate_ipxe_script(domain=None):
                         f"boot || goto menu_loop\n"
                     )
                     continue
+                elif distro_type == "clonezilla":
+                    sqfs_hint = os.path.join(ISO_LIN_DIR, iso_folder, 'squashfs_path.txt')
+                    sqfs_rel  = open(sqfs_hint, encoding='utf-8-sig').read().strip() if os.path.exists(sqfs_hint) else 'live/filesystem.squashfs'
+                    squashfs_url = f"http://{_uip}:{port}/ISO/Linux/{iso_folder}/{sqfs_rel}"
+                    args = f"initrd=initrd.img boot=live union=overlay username=user config loglevel=3 noswap edd=on nomodeset enforcing=0 locales= keyboard-layouts= ocs_live_run=ocs-live-general ocs_live_extra_param= ocs_live_batch=no vga=788 net.ifnames=0 quiet splash i915.blacklist=yes radeonhd.blacklist=yes nouveau.blacklist=yes vmwgfx.enable_fbdev=1 fetch={squashfs_url}"
+                elif distro_type == "gparted":
+                    sqfs_hint = os.path.join(ISO_LIN_DIR, iso_folder, 'squashfs_path.txt')
+                    sqfs_rel  = open(sqfs_hint, encoding='utf-8-sig').read().strip() if os.path.exists(sqfs_hint) else 'live/filesystem.squashfs'
+                    squashfs_url = f"http://{_uip}:{port}/ISO/Linux/{iso_folder}/{sqfs_rel}"
+                    args = f"initrd=initrd.img boot=live config components union=overlay username=user noswap noeject vga=788 net.ifnames=0 fetch={squashfs_url} quiet"
+                elif distro_type == "rescuezilla":
+                    iso_url = f"http://{_uip}:{port}/ISO/Linux/{iso_folder}/{iso_file}"
+                    args = f"initrd=initrd.img boot=casper netboot=url url={iso_url} ip=dhcp quiet splash"
+                elif distro_type == "redorescue":
+                    iso_url = f"http://{_uip}:{port}/ISO/Linux/{iso_folder}/{iso_file}"
+                    args = f"initrd=initrd.img ip=dhcp boot=live components fetch={iso_url} quiet splash"
+                elif distro_type == "sysrescue":
+                    base_url = f"http://{_uip}:{port}/ISO/Linux/{iso_folder}/"
+                    args = f"initrd=initrd.img ip=dhcp archisobasedir=sysresccd archiso_http_srv={base_url} quiet"
+                elif distro_type == "partedmagic":
+                    pmodules_url = f"http://{_uip}:{port}/ISO/Linux/{iso_folder}/pmagic/pmodules/"
+                    args = f"initrd=initrd.img netsrc=wget neturl={pmodules_url}"
                 elif distro_type == "debian":
                     sqfs_hint = os.path.join(ISO_LIN_DIR, iso_folder, 'squashfs_path.txt')
                     sqfs_rel  = open(sqfs_hint, encoding='utf-8-sig').read().strip() if os.path.exists(sqfs_hint) else 'live/filesystem.squashfs'
@@ -2138,7 +2274,7 @@ def _mount_iso(folder):
                 continue
             if 'No Media' in line:
                 continue
-            if 'UDF' not in line and 'DVD-ROM' not in line:
+            if 'UDF' not in line and 'DVD-ROM' not in line and 'CDFS' not in line:
                 continue
             # Drive letter atanmis mi?
             ltr = line[15:18].strip() if len(line) > 18 else ''
