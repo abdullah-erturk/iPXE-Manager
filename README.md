@@ -219,7 +219,7 @@ Bu proje iki temel bileşen üzerine inşa edilmiştir:
 | Canlı extract log | ✅ Polling tabanlı | ⚠️ Sınırlı | ✅ Streaming |
 | MAC bazlı erişim kontrolü (ACL) | ❌ | ❌ | ✅ |
 | Donanım envanteri | ❌ | ❌ | ✅ |
-| Built-in araçlar (GParted/Clonezilla/Memtest) | ❌ | ⚠️ Bazıları | ✅ |
+| Built-in araçlar (GParted/Clonezilla/Memtest) | ✅ | ⚠️ Bazıları | ✅ |
 | Arayüz özelleştirme (logo / arka plan) | ✅ `splash.png` elle değiştirilebilir | ❌ Sabit görünüm | ❌ Sabit görünüm |
 | Kullanım kolaylığı (ISO/WIM ekle → boot) | ✅ Sürükle-bırak, otomatik tespit | ✅ Çok basit | ⚠️ Daha teknik panel |
 
@@ -537,7 +537,7 @@ This project builds on two key components:
 | Live extract log | ✅ Polling-based | ⚠️ Limited | ✅ Streaming |
 | MAC-based access control (ACL) | ❌ | ❌ | ✅ |
 | Hardware inventory | ❌ | ❌ | ✅ |
-| Built-in tools (GParted/Clonezilla/Memtest) | ❌ | ⚠️ Some | ✅ |
+| Built-in tools (GParted/Clonezilla/Memtest) | ✅ | ⚠️ Some | ✅ |
 | UI customization (logo / background) | ✅ `splash.png` manually replaceable | ❌ Fixed look | ❌ Fixed look |
 | Ease of use (add ISO/WIM → boot) | ✅ Drag-drop, auto-detection | ✅ Very simple | ⚠️ More technical panel |
 
