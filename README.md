@@ -12,6 +12,10 @@
 
 ![sample](https://github.com/abdullah-erturk/iPXE-Manager/blob/main/adminpanel.jpg)
 
+![sample](https://github.com/abdullah-erturk/iPXE-Manager/blob/main/liveclients.jpg)
+
+![sample](https://github.com/abdullah-erturk/iPXE-Manager/blob/main/liveclients.gif)
+
 ## Download Link:
 
 [![Stable?](https://img.shields.io/badge/Release-v1.svg?style=flat)](https://github.com/abdullah-erturk/iPXE-Manager/archive/refs/heads/main.zip)
@@ -24,7 +28,7 @@
 
 *Try accessing the control panel through your browser instead of downloading it to your computer — password: `admin` · No actual files are uploaded — it's a simulation.*
 
-# ⚡ iPXE Manager v2.2
+# ⚡ iPXE Manager v2.3
 
 *Network boot management panel for WinPE, Windows and Linux ISO files over PXE*
 
@@ -42,6 +46,7 @@
 | v2 | **🇹🇷 Türkçe:**<br>• ISO mount yöntemi sürücü harfi (A–Z) yerine klasör tabanlı gizli mount noktasına geçirildi — ISO'lar artık `diskpart` ile `pxe/mnt/<klasör_adı>` altına bağlanıyor ve sürücü harfi tüketmiyor<br>• `WinSetup.cmd`, kök dizininde `setup.exe` bulunmayan modifiye/slipstream Windows ISO'larını da destekliyor (`sources\` içindeki `install.wim`/`install.esd`/`install.swm` otomatik tespit edilip WinPE'nin yerleşik `X:\setup.exe` programıyla `/installfrom:` parametresi kullanılıyor)<br>• Mount/unmount ve reconciliation mantığı diskpart tabanlı olacak şekilde yeniden yazılıp güvenilirliği artırıldı<br>• Sunucu durdurma (stop) işlemi artık arka planda asenkron çalışıyor<br><br>**🇬🇧 English:**<br>• ISO mount method switched from drive letters (A–Z) to folder-based hidden mount points — ISOs are now bound under `pxe/mnt/<folder_name>` via `diskpart` and no longer consume a drive letter<br>• `WinSetup.cmd` now also supports modified/slipstreamed Windows ISOs that don't have `setup.exe` in the root (auto-detects `install.wim`/`install.esd`/`install.swm` inside `sources\` and launches via WinPE's built-in `X:\setup.exe` with the `/installfrom:` parameter)<br>• Mount/unmount and reconciliation logic was rewritten around diskpart for improved reliability<br>• Server stop now runs asynchronously in the background |
 | v2.1 | **🇹🇷 Türkçe:**<br>Bu güncelleme özellikle **modifiye WinPE ISO'larının** (Sergei Strelec vb.) mount edilirken yaşadığı sorunları gidermek için yapılmıştır. Söz konusu ISO'lar standart yapıdan farklı bir volume düzeni sunduğundan önceki `Get-DiskImage` tabanlı yöntem güvenilir çalışmıyordu.<br>• ISO mount öncesinde mevcut `mnt_temp` klasörü varsa silinip yeniden oluşturuluyor — eski/bozuk mount noktasından kaynaklanan sorunlar önleniyor<br>• ISO mount yöntemi `Get-DiskImage` / `Add-PartitionAccessPath` tabanlı yaklaşımdan tamamen `diskpart` tabanlı yönteme geçirildi — mount öncesi ve sonrası volume listesi `diskpart list volume` ile karşılaştırılarak drive letter'sız UDF/DVD-ROM volume tespit ediliyor ve `diskpart assign mount=` komutuyla klasöre bağlanıyor<br>• Mount bekleme süresi 1000ms'den 2000ms'ye yükseltildi — yavaş sistemlerde mount işleminin tamamlanması için ek süre tanınıyor<br>• `_unmount_all_isos()` fonksiyonundaki ek PowerShell sweep kodu kaldırıldı — `_unmount_iso()` fonksiyonu zaten her ISO'yu ayrı ayrı doğru şekilde unmount ettiğinden gereksiz hale gelmişti<br><br>**🇬🇧 English:**<br>This update primarily addresses ISO mount issues with **modified WinPE ISOs** (e.g. Sergei Strelec). Such ISOs expose a non-standard volume layout that caused the previous `Get-DiskImage`-based method to fail unreliably.<br>• Existing `mnt_temp` folder is now deleted and recreated before ISO mount — prevents issues caused by stale or broken mount points<br>• ISO mount method fully migrated from `Get-DiskImage` / `Add-PartitionAccessPath` to a pure `diskpart`-based approach — volume list is captured before and after mount via `diskpart list volume`, the new drive-letter-free UDF/DVD-ROM volume is identified, and bound to the folder using `diskpart assign mount=`<br>• Mount wait time increased from 1000ms to 2000ms — gives additional time for mount to complete on slower systems<br>• Removed the redundant PowerShell sweep block from `_unmount_all_isos()` — it was no longer needed since `_unmount_iso()` already handles each ISO correctly on its own |
 | v2.2 | **🇹🇷 Türkçe:**<br>• Rescuezilla, Redo Rescue, SystemRescue ve Parted Magic gibi Linux tabanlı sistem kurtarma, disk klonlama ve bakım araçlarına (ISO) ağ üzerinden doğrudan PXE önyükleme (HTTP Boot) desteği eklendi.<br><br>**🇬🇧 English:**<br>• Added pure HTTP network PXE boot support for Linux-based system recovery, disk cloning, and maintenance tools (ISOs) such as Rescuezilla, Redo Rescue, SystemRescue, and Parted Magic. |
+| v2.3 | **🇹🇷 Türkçe:**<br>✔ WinPE ve Windows Kurulum (Setup) ortamları için "Canlı İstemciler" sayfasına entegre, asenkron ve ağ duyarlı UltraVNC/noVNC uzaktan bağlantı desteği eklendi.<br>✔ WIM tabanlı kurtarma araçlarının (Hasleo Backup Suite vb.) orijinal winpeshl.ini shell dosyasını bozmadan (arka planda) VNC enjeksiyonu yapabilen akıllı WIM harmanlama algoritması geliştirildi.<br><br>**🇬🇧 English:**<br>✔ Added asynchronous and network-aware UltraVNC/noVNC remote control support integrated with the "Live Clients" page for WinPE and Windows Setup environments.<br>✔ Developed a smart WIM merging algorithm capable of performing background VNC injection without breaking the original winpeshl.ini shell files of WIM-based recovery tools (Hasleo Backup Suite, etc.). |
 
 </details>
     
@@ -114,6 +119,8 @@ Special thanks to **Tayfun AKKOYUN** for his support.
 <details>
 <summary><strong>📖 Proje Hakkında</strong></summary>
 
+
+
 ### iPXE Manager Nedir?
 
 iPXE Manager, Windows ve Linux işletim sistemlerini USB veya DVD gibi fiziksel ortamlara gerek kalmadan ağ üzerinden PXE (Preboot eXecution Environment) ile önyüklemenizi sağlayan web tabanlı bir yönetim panelidir.
@@ -165,6 +172,18 @@ Bu proje iki temel bileşen üzerine inşa edilmiştir:
 </details>
 
 <details>
+<summary><strong>📡 Canlı WinPE & Setup Uzaktan Yönetim (VNC)</strong></summary>
+
+Bu proje, PXE üzerinden boot eden **WinPE ve Windows Kurulum (Setup)** ortamlarına arka planda otomatik olarak **UltraVNC Sunucusu** enjekte eder. 
+- Ağa bağlanan cihazlar anında iPXE Manager web panelindeki **"Canlı İstemciler"** sekmesine düşer.
+- İstemcilere tek tıkla **VNC (Web tabanlı noVNC)** ile bağlanıp uzaktan format atabilir veya onarım işlemlerini yapabilirsiniz.
+- **Asenkron Çalışma:** VNC tetikleyicisi (vnc.cmd), WinPE başlatıldığında kurulumu (örneğin Hasleo Backup Suite veya Windows Kurulum ekranını) asla dondurmaz veya geciktirmez. Arka planda sessizce IP adresinin alınmasını bekler. IP alındığı saniye güvenlik duvarını kapatıp VNC'yi ayaklandırır.
+- **Manuel Tetikleme (Sorun Giderme):** Ağ bağlantısının çok geç sağlandığı ve VNC'nin otomatik olarak başlatılamadığı nadir WinPE sürümlerinde; herhangi bir CMD penceresi açıp `vnc.cmd` yazarak Enter tuşuna basmanız, VNC'yi anında etkinleştirmek ve panelde görünmesini sağlamak için yeterlidir!
+
+</details>
+
+
+<details>
 <summary><strong>⚔️ Karşılaştırma — iPXE Manager vs iVentoy vs Bootimus</strong></summary>
 
 <br>
@@ -210,6 +229,7 @@ Bu proje iki temel bileşen üzerine inşa edilmiştir:
 | Özellik | **iPXE Manager** | iVentoy | Bootimus |
 |---|---|---|---|
 | Web tabanlı yönetim paneli | ✅ Modern, responsive | ⚠️ Temel | ✅ Modern, REST API |
+| Canlı WinPE & Setup Uzaktan Yönetim (VNC) | ✅ Otomatik Web Paneli | ❌ Yok | ❌ Yok |
 | Çoklu dil (kullanıcı eklenebilir) | ✅ `Lang/*.ini`, otomatik tespit | ⚠️ Sabit diller | ❌ Sadece İngilizce |
 | Karanlık / aydınlık tema | ✅ | ❌ | ✅ |
 | Şifre koruması | ✅ Opsiyonel | ❌ | ✅ JWT + bcrypt |
@@ -348,6 +368,8 @@ iPXE Manager/
 │   ├── English.ini
 │   ├── Turkish.ini
 │   └── <Dil>.ini               ← Yeni dil eklemek için bu şablonu kopyalayın
+├── static/
+│──     └── novnc/                  ← HTML5 VNC Web İstemcisi
 ├── Source Codes/
 │   ├── iPXE Manager_source.py  ← Sunucu kaynak kodu (Python/Flask)
 │   └── davinst_source.py       ← WinPE WebDAV servis yükleyici kaynağı (x86 ve x64 için ayrı derlenir)
@@ -374,6 +396,12 @@ iPXE Manager/
             ├── boot/bcd            ← BIOS BCD
             ├── efi/microsoft/boot/ ← EFI BCD
             ├── dynamic/            ← Otomatik üretilen WinSetup betikleri
+            ├── vnc.cmd             # Asynchronous WinPE VNC launcher and network waiter
+            ├── ultravnc.ini        # Predefined UltraVNC secure configuration
+            ├── winvnc_amd64.exe    # UltraVNC Server executable (x64)
+            ├── winvnc_x86.exe      # UltraVNC Server executable (x86)
+            ├── vnchooks_amd64.dll  # UltraVNC hooks library (x64)
+            ├── vnchooks_x86.dll    # UltraVNC hooks library (x86)
             └── rclone/                ← Windows ISO kurulum bileşenleri (WinFsp+RClone fallback yolu)
                 ├── rclone_amd64.exe   ← x64 rclone (WebDAV→sanal sürücü bağlantısı)
                 ├── rclone_x86.exe     ← x86 rclone (x86 WinPE için)
@@ -418,10 +446,12 @@ Bu proje **Abdullah ERTÜRK** tarafından kişisel işyeri kullanımı için gel
 - Üçüncü taraf bileşenler (pxesrv, iPXE ikili dosyaları) kendi lisanslarına tabidir
 
 **Bağlantılar:**
-- 🌐 [erturk-dev.netlify.app](https://erturk-dev.netlify.app)
 - 💻 [github.com/abdullah-erturk](https://github.com/abdullah-erturk)
+- 🌐 [erturk-dev.netlify.app](https://erturk-dev.netlify.app)
 - 🔧 [Erwan'ın TinyPXE'si](http://erwan.labalec.fr/tinypxe/)
 - ⚡ [iPXE — github.com/ipxe/ipxe](https://github.com/ipxe/ipxe)
+- 🖥️ [UltraVNC - uvnc.com](https://github.com/ultravnc)
+- 🌐 [noVNC - novnc.com](https://github.com/novnc/noVNC)
 
 </details>
 
@@ -431,6 +461,8 @@ Bu proje **Abdullah ERTÜRK** tarafından kişisel işyeri kullanımı için gel
 
 <details>
 <summary><strong>📖 About the Project</strong></summary>
+
+
 
 ### What is iPXE Manager?
 
@@ -483,6 +515,18 @@ This project builds on two key components:
 </details>
 
 <details>
+<summary><strong>📡 Live WinPE & Windows Setup Remote Control (VNC)</strong></summary>
+
+This project automatically injects an **UltraVNC Server** into **WinPE and Windows Setup** environments booted over PXE in the background.
+- Devices connected to the network instantly appear in the **"Live Clients"** tab on the iPXE Manager web panel.
+- You can connect to clients with a single click via **VNC (Web-based noVNC)** to perform remote installations or repairs.
+- **Asynchronous Execution:** The VNC trigger (vnc.cmd) never freezes or delays the setup (e.g., Hasleo Backup Suite or Windows Setup screen) when WinPE starts. It silently waits in the background for an IP address to be acquired. The second the IP is obtained, it disables the firewall and starts VNC.
+- **Manual Trigger (Troubleshooting):** In rare WinPE versions where the network is acquired very late and VNC cannot start automatically, simply opening any CMD window, typing vnc.cmd, and pressing Enter is enough to activate VNC instantly and make it appear in the panel!
+
+</details>
+
+
+<details>
 <summary><strong>⚔️ Comparison — iPXE Manager vs iVentoy vs Bootimus</strong></summary>
 
 <br>
@@ -528,6 +572,7 @@ This project builds on two key components:
 | Feature | **iPXE Manager** | iVentoy | Bootimus |
 |---|---|---|---|
 | Web-based management panel | ✅ Modern, responsive | ⚠️ Basic | ✅ Modern, REST API |
+| Live WinPE & Setup Remote Control (VNC) | ✅ Auto Web Panel | ❌ No | ❌ No |
 | Multi-language (user-extensible) | ✅ `Lang/*.ini`, auto-detected | ⚠️ Fixed languages | ❌ English only |
 | Dark / light theme | ✅ | ❌ | ✅ |
 | Password protection | ✅ Optional | ❌ | ✅ JWT + bcrypt |
@@ -666,6 +711,8 @@ iPXE Manager/
 │   ├── English.ini
 │   ├── Turkish.ini
 │   └── <Language>.ini          ← Copy this template to add a new language
+├── static/
+│──     └── novnc/                  ← HTML5 VNC Web Client
 ├── Source Codes/
 │   ├── iPXE Manager_source.py  ← Server source code (Python/Flask)
 │   └── davinst_source.py       ← WinPE WebDAV service installer source (compiled separately for x86 and x64)
@@ -736,10 +783,12 @@ This project was developed by **Abdullah ERTÜRK** for personal workplace use. I
 - Third-party components (pxesrv, iPXE binaries) are subject to their own licenses
 
 **Links:**
-- 🌐 [erturk-dev.netlify.app](https://erturk-dev.netlify.app)
 - 💻 [github.com/abdullah-erturk](https://github.com/abdullah-erturk)
+- 🌐 [erturk-dev.netlify.app](https://erturk-dev.netlify.app)
 - 🔧 [Erwan's TinyPXE](http://erwan.labalec.fr/tinypxe/)
 - ⚡ [iPXE — github.com/ipxe/ipxe](https://github.com/ipxe/ipxe)
+- 🖥️ [UltraVNC - uvnc.com](https://github.com/ultravnc)
+- 🌐 [noVNC - novnc.com](https://github.com/novnc/noVNC)
 
 </details>
 

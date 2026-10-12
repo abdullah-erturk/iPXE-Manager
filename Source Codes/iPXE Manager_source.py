@@ -1,10 +1,18 @@
 import os, sys, json, shutil, subprocess, time, threading, re, ctypes, ctypes.wintypes, tempfile
 import socket, atexit, traceback, stat
+import asyncio, hashlib, base64, struct, mimetypes
 from urllib.parse import quote
 from functools import wraps
 from flask import Flask, jsonify, request, send_from_directory, session, Response, stream_with_context
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
+
+
+import sys, os
+if sys.stdout is None:
+    sys.stdout = open(os.devnull, 'w')
+if sys.stderr is None:
+    sys.stderr = open(os.devnull, 'w')
 
 app = Flask(__name__)
 
@@ -1139,7 +1147,108 @@ def generate_ipxe_script(domain=None):
     if not domain or not str(domain).strip():
         domain = settings.get('domain')
     if not domain or not str(domain).strip():
-        domain = '10.50.1.57' # Kullanıcı boş bırakırsa sistemi çökertmemek için kurtarıcı IP
+        domain = '10.50.1.57'
+
+    # Generate ultravnc.ini
+    vnc_ini_path = os.path.join(PXE_DIR, 'TOOLS', 'MS', 'ultravnc.ini')
+    os.makedirs(os.path.dirname(vnc_ini_path), exist_ok=True)
+    with open(vnc_ini_path, 'w', encoding='utf-8') as ini_f:
+        ini_f.write("""[UltraVNC]
+passwd=EE5B0E48C8FE9771
+[admin]
+AllowUserSettingsWithPassword=0
+FileTransferEnabled=1
+FTUserImpersonation=1
+BlankMonitorEnabled=1
+BlankInputsOnly=0
+DefaultScale=1
+UseDSMPlugin=0
+DSMPlugin=
+DSMPluginConfig=
+AuthHosts=
+primary=1
+secondary=0
+SocketConnect=1
+HTTPConnect=1
+AutoPortSelect=0
+PortNumber=5900
+HTTPPortNumber=5800
+InputsEnabled=1
+LocalInputsDisabled=0
+IdleTimeout=0
+EnableJapInput=0
+ForceCursorShape=0
+EnableUnicodeInput=1
+EnableWin8Helper=0
+QuerySetting=1
+ForbidShutdown=1
+QueryTimeout=10
+QueryDisableTime=0
+QueryAccept=0
+MaxViewerSetting=0
+MaxViewers=128
+Collabo=0
+Frame=0
+Notification=0
+OSD=0
+NotificationSelection=0
+QueryIfNoLogon=1
+LockSetting=0
+RemoveWallpaper=1
+RemoveEffects=0
+RemoveFontSmoothing=0
+DebugMode=0
+Avilog=0
+path=D:\\TMP\\x86
+DebugLevel=0
+AllowLoopback=1
+UseIpv6=0
+LoopbackOnly=0
+AllowShutdown=1
+AllowProperties=0
+UseBridge=1
+AllowInjection=0
+AllowEditClients=0
+FileTransferTimeout=30
+KeepAliveInterval=5
+IdleInputTimeout=0
+DisableTrayIcon=0
+rdpmode=0
+noscreensaver=0
+Secure=0
+MSLogonRequired=0
+NewMSLogon=0
+ReverseAuthRequired=1
+ConnectPriority=0
+AuthRequired=0
+service_commandline=
+accept_reject_mesg=
+cloudServer=
+cloudEnabled=0
+Language=en
+[poll]
+TurboMode=1
+PollUnderCursor=1
+PollForeground=1
+PollFullScreen=1
+OnlyPollConsole=0
+OnlyPollOnEvent=0
+MaxCpu2=100
+MaxFPS=25
+EnableDriver=0
+EnableHook=0
+EnableVirtual=0
+autocapt=1
+[admin_auth]
+group1=
+group2=
+group3=
+locdom1=0
+locdom2=0
+locdom3=0
+""")
+
+
 
     default_boot = settings.get('default_boot') or 'HDD'
     try:
@@ -1150,6 +1259,44 @@ def generate_ipxe_script(domain=None):
     timeout_ms = countdown_sec * 1000
         
     boot_url = f"http://{domain}"
+
+    # Saf WIM'ler icin dinamik vnc.cmd (winpeshl.ini'yi ezmez)
+    vnc_cmd = (
+        "@echo off\r\n"
+        "if \"%~1\" NEQ \"BG_RUN\" (\r\n"
+        "    start /min cmd /c \"%~f0\" BG_RUN\r\n"
+        "    exit /b\r\n"
+        ")\r\n"
+        ":WAIT_NET\r\n"
+        f"ping -n 2 {domain} >nul 2>&1\r\n"
+        "if errorlevel 1 (\r\n"
+        "    ping -n 2 127.0.0.1 >nul\r\n"
+        "    goto WAIT_NET\r\n"
+        ")\r\n"
+        "wpeutil disablefirewall >nul 2>&1\r\n"
+        "set \"ARCH=amd64\"\r\n"
+        "if /i \"%PROCESSOR_ARCHITECTURE%\"==\"x86\" set \"ARCH=x86\"\r\n"
+        "mkdir \"%ProgramData%\\UltraVNC\" >nul 2>&1\r\n"
+        "copy /y \"%SystemRoot%\\System32\\ultravnc.ini\" \"%ProgramData%\\UltraVNC\\ultravnc.ini\" >nul 2>&1\r\n"
+        "\r\n"
+        "if exist \"%SystemRoot%\\System32\\winvnc_%ARCH%.exe\" (\r\n"
+        "    \"%SystemRoot%\\System32\\winvnc_%ARCH%.exe\" -install\r\n"
+        ") else (\r\n"
+        "    \"%SystemRoot%\\System32\\winvnc.exe\" -install\r\n"
+        ")\r\n"
+        f"curl.exe -s \"http://{domain}:8080/api/vnc_register\" >nul 2>&1\r\n"
+        "if errorlevel 1 (\r\n"
+        f"    powershell.exe -NoProfile -Command \"Invoke-WebRequest -Uri 'http://{domain}:8080/api/vnc_register' -UseBasicParsing\" >nul 2>&1\r\n"
+        "    if errorlevel 1 (\r\n"
+        "        echo set objXMLHTTP = CreateObject^(\"MSXML2.ServerXMLHTTP.6.0\"^) > \"X:\\report_vnc.vbs\"\r\n"
+        f"        echo objXMLHTTP.open \"GET\", \"http://{domain}:8080/api/vnc_register\", False >> \"X:\\report_vnc.vbs\"\r\n"
+        "        echo objXMLHTTP.send^(^) >> \"X:\\report_vnc.vbs\"\r\n"
+        "        cscript //nologo \"X:\\report_vnc.vbs\" >nul 2>&1\r\n"
+        "    )\r\n"
+        ")"
+    )
+    with open(os.path.join(PXE_DIR, 'TOOLS', 'MS', 'vnc.cmd'), 'w', encoding='utf-8') as f:
+        f.write(vnc_cmd)
 
     files = []; metadata = _get_metadata()
     if os.path.exists(ISO_WIN_DIR):
@@ -1343,6 +1490,24 @@ def generate_ipxe_script(domain=None):
                     ":MOUNT_OK\r\n"
                     "if exist \"%DRIVE%:\\\" (\r\n"
                     "    echo [+] ISO mounted at %DRIVE%: WinPE ready.\r\n"
+                    "    echo [+] Starting VNC Server for Remote Control...\r\n"
+                    "    wpeutil disablefirewall >nul 2>&1\r\n"
+                    "    mkdir \"%ProgramData%\\UltraVNC\" >nul 2>&1\r\n"
+                    "    copy /y \"%SystemRoot%\\System32\\ultravnc.ini\" \"%ProgramData%\\UltraVNC\\ultravnc.ini\" >nul 2>&1\r\n"
+                    "    if exist \"%SystemRoot%\\System32\\winvnc_%ARCH%.exe\" (\r\n"
+                    "        \"%SystemRoot%\\System32\\winvnc_%ARCH%.exe\" -install\r\n"
+                    "    ) else (\r\n"
+                    "        \"%SystemRoot%\\System32\\winvnc.exe\" -install\r\n"
+                    "    )\r\n"
+                    "    if errorlevel 1 (\r\n"
+                    "        powershell.exe -NoProfile -Command \"Invoke-WebRequest -Uri 'http://%SERVER_IP%:%HTTP_PORT%/api/vnc_register' -UseBasicParsing\" >nul 2>&1\r\n"
+                    "        if errorlevel 1 (\r\n"
+                    "            echo set objXMLHTTP = CreateObject^(\"MSXML2.ServerXMLHTTP.6.0\"^) > \"X:\\report_vnc.vbs\"\r\n"
+                    "            echo objXMLHTTP.open \"GET\", \"http://%SERVER_IP%:%HTTP_PORT%/api/vnc_register\", False >> \"X:\\report_vnc.vbs\"\r\n"
+                    "            echo objXMLHTTP.send^(^) >> \"X:\\report_vnc.vbs\"\r\n"
+                    "            cscript //nologo \"X:\\report_vnc.vbs\" >nul 2>&1\r\n"
+                    "        )\r\n"
+                    "    )\r\n"
                     "    ping 127.0.0.1 -n 2 >nul\r\n"
                     "    exit\r\n"
                     ") else (\r\n"
@@ -1398,6 +1563,25 @@ def generate_ipxe_script(domain=None):
                     ":MOUNT_OK\r\n"
                     "if exist \"%DRIVE%:\\\" (\r\n"
                     "    echo [+] Mounted at %DRIVE%:\r\n"
+                    "    wpeutil disablefirewall >nul 2>&1\r\n"
+                    "    mkdir \"%ProgramData%\\UltraVNC\" >nul 2>&1\r\n"
+                    "    copy /y \"%SystemRoot%\\System32\\ultravnc.ini\" \"%ProgramData%\\UltraVNC\\ultravnc.ini\" >nul 2>&1\r\n"
+
+                    "    if exist \"%SystemRoot%\\System32\\winvnc_%ARCH%.exe\" (\r\n"
+                    "        \"%SystemRoot%\\System32\\winvnc_%ARCH%.exe\" -install\r\n"
+                    "    ) else (\r\n"
+                    "        \"%SystemRoot%\\System32\\winvnc.exe\" -install\r\n"
+                    "    )\r\n"
+                    "    curl.exe -s \"http://%SERVER_IP%:%HTTP_PORT%/api/vnc_register\" >nul 2>&1\r\n"
+                    "    if errorlevel 1 (\r\n"
+                    "        powershell.exe -NoProfile -Command \"Invoke-WebRequest -Uri 'http://%SERVER_IP%:%HTTP_PORT%/api/vnc_register' -UseBasicParsing\" >nul 2>&1\r\n"
+                    "        if errorlevel 1 (\r\n"
+                    "            echo set objXMLHTTP = CreateObject^(\"MSXML2.ServerXMLHTTP.6.0\"^) > \"X:\\report_vnc.vbs\"\r\n"
+                    "            echo objXMLHTTP.open \"GET\", \"http://%SERVER_IP%:%HTTP_PORT%/api/vnc_register\", False >> \"X:\\report_vnc.vbs\"\r\n"
+                    "            echo objXMLHTTP.send^(^) >> \"X:\\report_vnc.vbs\"\r\n"
+                    "            cscript //nologo \"X:\\report_vnc.vbs\" >nul 2>&1\r\n"
+                    "        )\r\n"
+                    "    )\r\n"
                     ") else (\r\n"
                     "    echo [!] Mount failed. Drive %DRIVE%: not accessible.\r\n"
                     "    cmd /k\r\n)\r\n"
@@ -1460,6 +1644,11 @@ def generate_ipxe_script(domain=None):
                 f"initrd ${{boot-url}}/Tools/MS/dynamic/{safe_id}/WinSetup.cmd WinSetup.cmd\n"
                 f"initrd ${{boot-url}}/Tools/MS/dynamic/{safe_id}/ipxe.cfg ipxe.cfg\n"
                 f"initrd ${{boot-url}}/Tools/MS/dynamic/{safe_id}/winpeshl.ini winpeshl.ini\n"
+                f"initrd ${{boot-url}}/Tools/MS/winvnc_amd64.exe winvnc_amd64.exe\n"
+                f"initrd ${{boot-url}}/Tools/MS/vnchooks_amd64.dll vnchooks_amd64.dll\n"
+                f"initrd ${{boot-url}}/Tools/MS/winvnc_x86.exe winvnc_x86.exe\n"
+                f"initrd ${{boot-url}}/Tools/MS/vnchooks_x86.dll vnchooks_x86.dll\n"
+                f"initrd ${{boot-url}}/Tools/MS/ultravnc.ini ultravnc.ini\n"
             )
 
             if is_setup:
@@ -1685,10 +1874,55 @@ def generate_ipxe_script(domain=None):
                     f"boot || goto menu_loop\n"
                 )
         elif f['type'] == 'WIM':
+            safe_id = f['name'].replace('.', '_').replace(' ', '_')
+            cmd_dir = os.path.join(PXE_DIR, 'TOOLS', 'MS', 'dynamic', safe_id)
+            os.makedirs(cmd_dir, exist_ok=True)
+            
+            local_wim_path = os.path.join(WIM_DIR, f['name'], 'boot.wim')
+            wimlib_path = os.path.join(PXE_DIR, 'TOOLS', 'wimlib-imagex.exe')
+            
+            ini_content = ""
+            if os.path.exists(wimlib_path) and os.path.exists(local_wim_path):
+                import subprocess
+                try:
+                    CREATE_NO_WINDOW = 0x08000000
+                    result = subprocess.run([wimlib_path, 'extract', local_wim_path, '1', '\\Windows\\System32\\winpeshl.ini', '--to-stdout'], capture_output=True, text=True, timeout=2, creationflags=CREATE_NO_WINDOW)
+                    if result.returncode == 0 and result.stdout:
+                        ini_content = result.stdout.strip()
+                except:
+                    pass
+
+            if not ini_content:
+                ini_content = '[LaunchApps]\r\n%SYSTEMDRIVE%\\Windows\\System32\\vnc.cmd\r\n%SYSTEMDRIVE%\\Windows\\System32\\startnet.cmd\r\n'
+            else:
+                if re.search(r'\[LaunchApps\]', ini_content, re.IGNORECASE):
+                    ini_content = re.sub(
+                        r'(\[LaunchApps\][ \t]*\r?\n?)', 
+                        r'\g<1>%SYSTEMDRIVE%\\Windows\\System32\\vnc.cmd\r\n', 
+                        ini_content, 
+                        flags=re.IGNORECASE
+                    )
+                else:
+                    ini_content = '[LaunchApps]\r\n%SYSTEMDRIVE%\\Windows\\System32\\vnc.cmd\r\n\r\n' + ini_content
+            
+            with open(os.path.join(cmd_dir, 'winpeshl.ini'), 'w', encoding='utf-8') as wf:
+                wf.write(ini_content)
+                
             path = f"/WINPE/{f['name']}/boot.wim"
             boot_lines.append(f":{item_id}\niseq ${{platform}} efi && goto {item_id}_efi || goto {item_id}_pcbios\n")
-            boot_lines.append(f":{item_id}_efi\nset path_file {path}\nkernel ${{boot-url}}/Tools/MS/wimboot\ninitrd ${{boot-url}}/Tools/MS/efi/microsoft/boot/bcd\ninitrd ${{boot-url}}/Tools/MS/boot.sdi\ninitrd ${{boot-url}}${{path_file}}\nboot || goto menu_loop\n")
-            boot_lines.append(f":{item_id}_pcbios\nset path_file {path}\nkernel ${{boot-url}}/Tools/MS/wimboot rawbcd\ninitrd ${{boot-url}}/Tools/MS/boot/bcd bcd\ninitrd ${{boot-url}}/Tools/MS/bootmgr.exe bootmgr.exe\ninitrd ${{boot-url}}/Tools/MS/boot.sdi boot.sdi\ninitrd ${{boot-url}}${{path_file}} boot.wim\nboot || goto menu_loop\n")
+            
+            inject = (
+                f"initrd ${{boot-url}}/Tools/MS/dynamic/{safe_id}/winpeshl.ini winpeshl.ini\n"
+                f"initrd ${{boot-url}}/Tools/MS/vnc.cmd vnc.cmd\n"
+                f"initrd ${{boot-url}}/Tools/MS/winvnc_amd64.exe winvnc_amd64.exe\n"
+                f"initrd ${{boot-url}}/Tools/MS/vnchooks_amd64.dll vnchooks_amd64.dll\n"
+                f"initrd ${{boot-url}}/Tools/MS/winvnc_x86.exe winvnc_x86.exe\n"
+                f"initrd ${{boot-url}}/Tools/MS/vnchooks_x86.dll vnchooks_x86.dll\n"
+                f"initrd ${{boot-url}}/Tools/MS/ultravnc.ini ultravnc.ini\n"
+            )
+            
+            boot_lines.append(f":{item_id}_efi\nset path_file {path}\nkernel ${{boot-url}}/Tools/MS/wimboot\n{inject}initrd ${{boot-url}}/Tools/MS/efi/microsoft/boot/bcd\ninitrd ${{boot-url}}/Tools/MS/boot.sdi\ninitrd ${{boot-url}}${{path_file}}\nboot || goto menu_loop\n")
+            boot_lines.append(f":{item_id}_pcbios\nset path_file {path}\nkernel ${{boot-url}}/Tools/MS/wimboot rawbcd\n{inject}initrd ${{boot-url}}/Tools/MS/boot/bcd bcd\ninitrd ${{boot-url}}/Tools/MS/bootmgr.exe bootmgr.exe\ninitrd ${{boot-url}}/Tools/MS/boot.sdi boot.sdi\ninitrd ${{boot-url}}${{path_file}} boot.wim\nboot || goto menu_loop\n")
 
 
     template_path = os.path.join(PXE_DIR, 'autoexec.ipxe')
@@ -2953,6 +3187,75 @@ def edit_alias():
     meta = _get_metadata(); meta[name] = alias; _save_metadata(meta); generate_ipxe_script()
     return jsonify({'success': True})
 
+
+# --- VNC Remote Control Variables & Routes ---
+seen_ips = set()
+
+@app.before_request
+def track_ips():
+    if request.remote_addr:
+        seen_ips.add(request.remote_addr)
+
+vnc_clients = {}
+
+@app.route('/api/vnc_register')
+def vnc_register():
+    name = request.args.get('name', 'Unknown')
+    ip = request.remote_addr
+    vnc_clients[ip] = {'name': name, 'ip': ip}
+    return jsonify({"status": "ok", "ip": ip, "name": name})
+
+@app.route('/api/vnc_clients')
+def vnc_clients_list():
+    import socket
+    from concurrent.futures import ThreadPoolExecutor
+    
+    active_clients = {}
+    
+    def check_port(ip):
+        try:
+            with socket.create_connection((ip, 5900), timeout=0.6):
+                name = vnc_clients.get(ip, {}).get('name', f"Client_{ip.split('.')[-1]}")
+                active_clients[ip] = {'name': name, 'ip': ip}
+        except:
+            pass
+
+    all_ips = set(vnc_clients.keys()).union(seen_ips)
+    
+    subnet_prefixes = set()
+    # Sunucunun kendi IP'sinin subnet'ini kesin ekle (localhost'tan girilme ihtimaline karsi)
+    settings = _load_app_settings()
+    domain_ip = settings.get('domain', '')
+    if domain_ip:
+        d_parts = domain_ip.split('.')
+        if len(d_parts) == 4:
+            subnet_prefixes.add('.'.join(d_parts[:3]))
+            
+    for ip in all_ips:
+        if ip != '127.0.0.1' and not ip.startswith('169.254.'):
+            parts = ip.split('.')
+            if len(parts) == 4:
+                subnet_prefixes.add('.'.join(parts[:3]))
+                
+    for prefix in subnet_prefixes:
+        for i in range(1, 255):
+            all_ips.add(f"{prefix}.{i}")
+
+    with ThreadPoolExecutor(max_workers=300) as executor:
+        for ip in all_ips:
+            if ip == '127.0.0.1' or ip.startswith('169.254.'): continue
+            executor.submit(check_port, ip)
+# Update websockify tokens dynamically based on ACTIVE clients
+    tokens_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'vnc_tokens.txt')
+    try:
+        with open(tokens_file, 'w', encoding='utf-8') as f:
+            for c_ip in active_clients.keys():
+                f.write(f"{c_ip}: {c_ip}:5900\n")
+    except Exception as e:
+        pass  # Removed print statement to prevent console=False crash
+        
+    return jsonify(active_clients)
+
 @app.route('/api/server/status')
 def server_status():
     try:
@@ -2968,11 +3271,11 @@ def server_status():
 @login_required
 def start_server():
     try:
+        start_websockify()
         internal_start_pxe()
         _auto_mount_existing()
         return jsonify({'success': True})
     except Exception as e: return jsonify({'success': False, 'error': str(e)})
-
 @app.route('/api/server/stop', methods=['POST'])
 @login_required
 def stop_server():
@@ -2990,12 +3293,266 @@ def shutdown():
     def _do():
         internal_stop_pxe()
         _unmount_all_isos()
+        import multiprocessing
+
+        for child in multiprocessing.active_children():
+            try:
+                child.terminate()
+                child.join(timeout=1)
+            except: pass
         time.sleep(0.5)
-        os._exit(0)
+        import sys
+        sys.exit(0)
     threading.Thread(target=_do, daemon=True).start()
     return jsonify({'success': True})
 
+
+import multiprocessing
+
+
+def _websockify_target():
+    import asyncio
+    import hashlib
+    import base64
+    import struct
+    import os
+    import sys
+    import mimetypes
+
+
+    async def handle_client(reader, writer):
+        def log(msg):
+            try:
+                base_dir = os.path.dirname(sys.executable) if hasattr(sys, 'frozen') else os.path.dirname(os.path.abspath(__file__))
+                with open(os.path.join(base_dir, 'vnc_proxy.log'), 'a', encoding='utf-8') as f:
+                    f.write(msg + '\n')
+            except: pass
+            
+        try:
+            request_line = await reader.readline()
+            if not request_line: return
+            request_line = request_line.decode('utf-8', 'ignore').strip()
+            
+            parts = request_line.split(' ')
+            if len(parts) < 2:
+                writer.close()
+                return
+            method, path = parts[0], parts[1]
+            
+            headers = {}
+            while True:
+                line = await reader.readline()
+                line = line.decode('utf-8', 'ignore').strip()
+                if not line: break
+                if ':' in line:
+                    k, v = line.split(':', 1)
+                    headers[k.strip().lower()] = v.strip()
+                    
+            if headers.get('upgrade', '').lower() == 'websocket':
+                log(f"WebSocket request: {path}")
+                match = re.search(r'token=([0-9\.]+)', path)
+                if not match:
+                    log("Missing token")
+                    writer.write(b"HTTP/1.1 400 Bad Request\r\n\r\nMissing token")
+                    await writer.drain()
+                    writer.close()
+                    return
+                    
+                target_ip = match.group(1)
+                target_port = 5900
+                
+                key = headers.get('sec-websocket-key', '')
+                accept_key = base64.b64encode(hashlib.sha1((key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").encode()).digest()).decode()
+                
+                response = (
+                    "HTTP/1.1 101 Switching Protocols\r\n"
+                    "Upgrade: websocket\r\n"
+                    "Connection: Upgrade\r\n"
+                    f"Sec-WebSocket-Accept: {accept_key}\r\n"
+                )
+                if 'sec-websocket-protocol' in headers:
+                    response += f"Sec-WebSocket-Protocol: {headers['sec-websocket-protocol'].split(',')[0].strip()}\r\n"
+                response += "\r\n"
+                
+                writer.write(response.encode())
+                await writer.drain()
+                
+                log(f"Connecting to VNC {target_ip}:{target_port}")
+                
+                try:
+                    vnc_reader, vnc_writer = await asyncio.wait_for(asyncio.open_connection(target_ip, target_port), timeout=5.0)
+                    log(f"Connected to VNC {target_ip}:{target_port} successfully!")
+                except Exception as e:
+                    log(f"Failed to connect to VNC: {e}")
+                    writer.close()
+                    return
+
+                async def ws_to_tcp():
+                    try:
+                        while True:
+                            header = await reader.readexactly(2)
+                            b1, b2 = header
+                            opcode = b1 & 0x0f
+                            masked = b2 & 0x80
+                            payload_len = b2 & 0x7f
+                            
+                            if opcode == 8: # Close
+                                log("WS client closed connection")
+                                break
+                                
+                            if payload_len == 126:
+                                ext = await reader.readexactly(2)
+                                payload_len = struct.unpack('>H', ext)[0]
+                            elif payload_len == 127:
+                                ext = await reader.readexactly(8)
+                                payload_len = struct.unpack('>Q', ext)[0]
+                                
+                            if masked:
+                                mask = await reader.readexactly(4)
+                                
+                            if payload_len > 0:
+                                payload = bytearray(await reader.readexactly(payload_len))
+                                if masked:
+                                    for i in range(len(payload)):
+                                        payload[i] ^= mask[i % 4]
+                                
+                                if opcode in (1, 2): # Text or Binary
+                                    vnc_writer.write(payload)
+                                    await vnc_writer.drain()
+                    except asyncio.IncompleteReadError:
+                        pass
+                    except BaseException as e:
+                        log(f"ws_to_tcp error: {e}")
+                    finally:
+                        try:
+                            vnc_writer.close()
+                            writer.close()
+                        except: pass
+
+                async def tcp_to_ws():
+                    try:
+                        while True:
+                            data = await vnc_reader.read(8192)
+                            if not data: 
+                                log("VNC server closed connection")
+                                break
+                            
+                            length = len(data)
+                            header = bytearray([0x82]) # FIN + Binary
+                            
+                            if length < 126:
+                                header.append(length)
+                            elif length <= 65535:
+                                header.append(126)
+                                header.extend(struct.pack('>H', length))
+                            else:
+                                header.append(127)
+                                header.extend(struct.pack('>Q', length))
+                                
+                            writer.write(header + data)
+                            await writer.drain()
+                    except BaseException as e:
+                        log(f"tcp_to_ws error: {e}")
+                    finally:
+                        try:
+                            writer.close()
+                            vnc_writer.close()
+                        except: pass
+
+                await asyncio.gather(ws_to_tcp(), tcp_to_ws())
+                return
+
+            if hasattr(sys, 'frozen'):
+                base_dir = os.path.dirname(sys.executable)
+            else:
+                base_dir = os.path.dirname(os.path.abspath(__file__))
+                
+            novnc_dir = os.path.join(base_dir, 'static', 'novnc')
+            
+            url_path = path.split('?')[0]
+            if url_path == '/': url_path = '/vnc.html'
+            
+            file_path = os.path.normpath(os.path.join(novnc_dir, url_path.lstrip('/')))
+            if not file_path.startswith(novnc_dir):
+                writer.write(b"HTTP/1.1 403 Forbidden\r\n\r\n403 Forbidden")
+                await writer.drain()
+                writer.close()
+                return
+                
+            if os.path.exists(file_path) and os.path.isfile(file_path):
+                mime_type, _ = mimetypes.guess_type(file_path)
+                if not mime_type: mime_type = 'application/octet-stream'
+                if file_path.endswith('.js'): mime_type = 'application/javascript'
+                
+                with open(file_path, 'rb') as f:
+                    content = f.read()
+                    
+                response = (
+                    f"HTTP/1.1 200 OK\r\n"
+                    f"Content-Type: {mime_type}\r\n"
+                    f"Content-Length: {len(content)}\r\n"
+                    f"Connection: close\r\n\r\n"
+                ).encode() + content
+                
+                writer.write(response)
+                await writer.drain()
+            else:
+                writer.write(b"HTTP/1.1 404 Not Found\r\n\r\n404 Not Found")
+                await writer.drain()
+                
+        except Exception as e:
+            import traceback
+            try:
+                base_dir = os.path.dirname(sys.executable) if hasattr(sys, 'frozen') else os.path.dirname(os.path.abspath(__file__))
+                with open(os.path.join(base_dir, 'websockify_error.log'), 'a', encoding='utf-8') as f:
+                    f.write(traceback.format_exc())
+            except: pass
+        finally:
+            try: writer.close()
+            except: pass
+
+    async def main():
+        server = await asyncio.start_server(handle_client, '0.0.0.0', 6080)
+        async with server:
+            await server.serve_forever()
+
+    asyncio.run(main())
+
+def start_websockify():
+    t = threading.Thread(target=_websockify_target, daemon=True)
+    t.start()
+    return t
+
+
+def _kill_all_children():
+    """Kill all child processes before PyInstaller temp dir cleanup."""
+    try:
+        import multiprocessing as _mp
+        for child in _mp.active_children():
+            try:
+                child.terminate()
+                child.join(timeout=2)
+            except: pass
+        # Also try psutil if available for any orphans
+        try:
+            import os, signal
+            import psutil
+            current = psutil.Process(os.getpid())
+            for child in current.children(recursive=True):
+                try: child.kill()
+                except: pass
+        except: pass
+    except: pass
+
+atexit.register(_kill_all_children)
+
 if __name__ == '__main__':
+    import multiprocessing
+
+    multiprocessing.freeze_support()
+    atexit.register(_kill_all_children)
+
+
     import webbrowser
 
     def _open_browser():
@@ -3007,6 +3564,8 @@ if __name__ == '__main__':
                 time.sleep(0.5)
         webbrowser.open('http://localhost:8080')
 
+
+    start_websockify()
     internal_start_pxe()
     generate_ipxe_script()   # Tüm dynamic dosyaları (WinSetup.cmd, ipxe.cfg vb.) yeniden üret
     _auto_mount_existing()
