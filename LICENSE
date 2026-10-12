@@ -165,6 +165,14 @@ herhangi bir ek kısıtlama getirmez.
 
 The following third-party components are included:
 
+- UltraVNC (winvnc_amd64.exe, winvnc_x86.exe, vnchooks*.dll, etc.) — GPL v2
+  https://uvnc.com
+  https://github.com/ultravnc/UltraVNC
+
+- noVNC (HTML5 VNC Client) — MPL 2.0
+  https://novnc.com
+  https://github.com/novnc/noVNC
+
 - pxesrv.exe (TinyPXE Server) by Erwan Labalec — Freeware, closed source
   http://erwan.labalec.fr/tinypxe/
 
